@@ -1,0 +1,239 @@
+/* CineTot — fixed 1280x820 canvas, everything absolutely positioned.
+   Palette taken from a dark cinema: ink walls, a lit screen, projector amber
+   for the words being taught. */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #1b1d24;
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, "Noto Sans",
+               "Noto Sans Arabic", "Noto Sans Hebrew", "Noto Sans Devanagari", sans-serif;
+  font-size: 14px;
+  color: #22242c;
+}
+
+#canvas {
+  position: relative;
+  width: 1280px; height: 820px;
+  margin: 24px auto;
+  background: #f2efe6;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px #000, 0 24px 60px rgba(0,0,0,0.55);
+}
+
+/* ---------------------------------------------------------------- header */
+#header { position: absolute; left: 0; top: 0; width: 1280px; height: 56px; background: #101219; }
+#brand { position: absolute; left: 24px; top: 15px; font-size: 20px; font-weight: 800; letter-spacing: 3px; color: #f2efe6; }
+#brand span { color: #e8a33d; }
+#brand-sub { position: absolute; left: 168px; top: 22px; font-size: 11px; letter-spacing: 0.4px; color: #6f7482; }
+
+#lang-label, #domain-label { position: absolute; top: 9px; font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: #6f7482; }
+#lang-label { left: 776px; } #domain-label { left: 1024px; }
+#lang-select, #domain-select {
+  position: absolute; top: 22px; height: 24px;
+  background: #1b1e27; color: #f2efe6; border: 1px solid #2c303c; font-size: 12px; padding: 0 6px;
+}
+#lang-select { left: 776px; width: 226px; }
+#domain-select { left: 1024px; width: 232px; }
+
+/* ------------------------------------------------------------------ rail */
+#rail { position: absolute; left: 0; top: 56px; width: 280px; height: 764px; background: #191c24; }
+#rail-level { position: absolute; left: 24px; top: 26px; font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: #e8a33d; }
+#rail-vocab { position: absolute; left: 24px; top: 46px; font-size: 46px; font-weight: 300; color: #f2efe6; letter-spacing: -1px; }
+#rail-vocab-cap { position: absolute; left: 24px; top: 100px; font-size: 11px; color: #6f7482; }
+
+#rail-meter { position: absolute; left: 24px; top: 128px; width: 232px; height: 4px; background: #262a35; }
+#rail-meter-fill { position: absolute; left: 0; top: 0; width: 0; height: 4px; background: #e8a33d; }
+#rail-frontier { position: absolute; left: 24px; top: 140px; width: 232px; font-size: 10px; color: #565c6b; white-space: nowrap; overflow: hidden; }
+
+#rail-queue { position: absolute; left: 0; top: 500px; width: 280px; height: 200px; }
+#rail-queue-h { position: absolute; left: 24px; top: 0; font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: #565c6b; }
+#rail-queue-list { position: absolute; left: 24px; top: 22px; width: 232px; height: 170px; overflow: hidden; }
+.qw { position: relative; float: left; margin: 0 5px 5px 0; padding: 3px 7px; background: #22262f; color: #98a0af; font-size: 11px; }
+.qw.hot { background: #2e2413; color: #e8a33d; }
+#rail-queue-empty { font-size: 11px; color: #404653; line-height: 1.5; }
+
+#rail-counts { position: absolute; left: 24px; top: 172px; width: 232px; height: 54px; }
+.rc { position: absolute; top: 0; width: 74px; height: 54px; border-left: 1px solid #2c303c; padding-left: 10px; }
+#rc-known { left: 0; } #rc-learning { left: 79px; } #rc-unknown { left: 158px; }
+.rc b { position: absolute; left: 10px; top: 0; font-size: 21px; font-weight: 500; color: #f2efe6; }
+.rc span { position: absolute; left: 10px; top: 28px; font-size: 10px; color: #6f7482; }
+#rc-known b { color: #4fb3a5; } #rc-learning b { color: #e8a33d; } #rc-unknown b { color: #c85a4a; }
+
+#rail-nav { position: absolute; left: 0; top: 262px; width: 280px; }
+.nav-btn {
+  position: relative; display: block; width: 280px; height: 42px;
+  background: transparent; border: none; border-top: 1px solid #22262f;
+  color: #98a0af; font-size: 13px; text-align: left; padding-left: 24px; cursor: pointer;
+  font-family: inherit;
+}
+.nav-btn:hover { background: #1e222c; color: #f2efe6; }
+.nav-btn.on { background: #f2efe6; color: #101219; font-weight: 600; }
+#rail-foot { position: absolute; left: 24px; top: 720px; width: 232px; font-size: 10px; color: #404653; line-height: 1.5; }
+
+/* ------------------------------------------------------------------ main */
+#main { position: absolute; left: 280px; top: 56px; width: 1000px; height: 764px; }
+.panel { position: absolute; left: 0; top: 0; width: 1000px; height: 764px; display: none; overflow: hidden; }
+.panel.on { display: block; }
+
+.ptitle { position: absolute; left: 40px; top: 36px; font-size: 26px; font-weight: 300; letter-spacing: -0.4px; }
+.ptext { position: absolute; left: 40px; top: 74px; width: 700px; font-size: 13px; line-height: 1.6; color: #6b6f7a; }
+
+/* -------------------------------------------------------------- overview */
+#setup-steps { position: absolute; left: 40px; top: 148px; width: 920px; }
+.step { position: relative; width: 920px; height: 78px; border-top: 1px solid #ddd8ca; }
+.step b { position: absolute; left: 0; top: 22px; font-size: 28px; font-weight: 300; color: #c3bdac; }
+.step .st { position: absolute; left: 48px; top: 20px; font-size: 15px; font-weight: 600; }
+.step .sd { position: absolute; left: 48px; top: 42px; width: 620px; font-size: 12px; color: #6b6f7a; }
+.step .go {
+  position: absolute; right: 0; top: 22px; width: 150px; height: 34px;
+  background: #101219; color: #f2efe6; border: none; font-size: 12px; cursor: pointer; font-family: inherit;
+}
+.step .go:hover { background: #e8a33d; color: #101219; }
+.step.done b { color: #4fb3a5; }
+.step.done .go { background: #ddd8ca; color: #6b6f7a; }
+
+#setup-bands { position: absolute; left: 40px; top: 424px; width: 920px; height: 300px; }
+.bandrow { position: relative; width: 920px; height: 26px; }
+.bandrow .bl { position: absolute; left: 0; top: 6px; width: 44px; font-size: 11px; color: #6b6f7a; }
+.bandrow .bbar { position: absolute; left: 52px; top: 8px; height: 10px; background: #ddd8ca; width: 700px; }
+.bandrow .bfill { position: absolute; left: 0; top: 0; height: 10px; background: #4fb3a5; }
+.bandrow .bnum { position: absolute; left: 768px; top: 6px; font-size: 11px; color: #6b6f7a; }
+#bands-title { position: absolute; left: 0; top: -26px; font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: #9a9484; }
+
+/* ------------------------------------------------------------- placement */
+#test-instructions { position: absolute; left: 40px; top: 74px; width: 760px; font-size: 13px; line-height: 1.6; color: #6b6f7a; }
+#test-grid { position: absolute; left: 40px; top: 140px; width: 920px; height: 500px; overflow-y: auto; }
+.chip {
+  position: relative; float: left; width: 138px; height: 42px; margin: 0 8px 8px 0;
+  background: #fff; border: 1px solid #ddd8ca; cursor: pointer;
+  font-size: 13px; font-family: inherit; color: #22242c; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; padding: 0 8px;
+}
+.chip:hover { border-color: #101219; }
+.chip.on { background: #101219; color: #f2efe6; border-color: #101219; }
+.chip.real-yes { box-shadow: inset 3px 0 0 #4fb3a5; }
+.chip.real-no { box-shadow: inset 3px 0 0 #c85a4a; }
+
+#test-count { position: absolute; left: 40px; top: 664px; font-size: 12px; color: #6b6f7a; }
+#test-submit { position: absolute; left: 40px; top: 690px; width: 220px; height: 40px; background: #101219; color: #f2efe6; border: none; font-size: 13px; cursor: pointer; font-family: inherit; }
+#test-submit:hover { background: #e8a33d; color: #101219; }
+#test-restart { position: absolute; left: 272px; top: 690px; width: 160px; height: 40px; background: transparent; color: #6b6f7a; border: 1px solid #ddd8ca; font-size: 13px; cursor: pointer; font-family: inherit; }
+#test-report { position: absolute; left: 452px; top: 664px; width: 508px; font-size: 12px; line-height: 1.7; color: #22242c; }
+#test-report b { color: #101219; }
+#test-report .warn { color: #c85a4a; }
+
+/* ------------------------------------------------------------- interests */
+#topic-input { position: absolute; left: 40px; top: 140px; width: 560px; height: 40px; border: 1px solid #ddd8ca; padding: 0 12px; font-size: 14px; font-family: inherit; background: #fff; }
+#topic-add { position: absolute; left: 612px; top: 140px; width: 130px; height: 40px; background: #fff; border: 1px solid #101219; font-size: 13px; cursor: pointer; font-family: inherit; }
+#topic-chips { position: absolute; left: 40px; top: 194px; width: 920px; height: 76px; }
+.tchip { position: relative; float: left; height: 30px; margin: 0 8px 8px 0; padding: 0 10px; background: #101219; color: #f2efe6; font-size: 12px; line-height: 30px; }
+.tchip u { text-decoration: none; margin-left: 8px; color: #e8a33d; cursor: pointer; }
+#topic-go { position: absolute; left: 40px; top: 282px; width: 220px; height: 40px; background: #101219; color: #f2efe6; border: none; font-size: 13px; cursor: pointer; font-family: inherit; }
+#topic-go:hover { background: #e8a33d; color: #101219; }
+#interest-status { position: absolute; left: 276px; top: 294px; width: 680px; font-size: 12px; color: #6b6f7a; }
+#interest-grid { position: absolute; left: 40px; top: 340px; width: 920px; height: 320px; overflow-y: auto; }
+#interest-submit { position: absolute; left: 40px; top: 690px; width: 220px; height: 40px; background: #101219; color: #f2efe6; border: none; font-size: 13px; cursor: pointer; font-family: inherit; display: none; }
+
+/* ------------------------------------------------------------------ play */
+#play-btn { position: absolute; left: 40px; top: 32px; width: 220px; height: 40px; background: #101219; color: #f2efe6; border: none; font-size: 13px; cursor: pointer; font-family: inherit; }
+#play-btn:hover:not(:disabled) { background: #e8a33d; color: #101219; }
+#play-btn:disabled { background: #ddd8ca; color: #9a9484; cursor: default; }
+#play-status { position: absolute; left: 276px; top: 44px; width: 684px; font-size: 12px; color: #6b6f7a; }
+
+/* the screen: a subtitle plate, which is how you actually read a foreign film */
+#screen { position: absolute; left: 40px; top: 92px; width: 920px; height: 260px; background: #0d0f14; overflow-y: auto; }
+#screen-emoji { position: absolute; left: 0; top: 18px; width: 920px; text-align: center; font-size: 30px; }
+#screen-text {
+  position: absolute; left: 70px; top: 66px; width: 780px;
+  font-family: Georgia, "Times New Roman", "Noto Serif", serif;
+  font-size: 20px; line-height: 1.95; color: #ddd9cf; text-align: center;
+}
+#screen-text.rtl { direction: rtl; }
+#screen-text .w { cursor: pointer; padding: 1px 1px; border-radius: 2px; }
+#screen-text .w:hover { background: #2a2f3c; }
+#screen-text .w.target { color: #e8a33d; border-bottom: 2px solid #e8a33d; font-weight: bold; }
+#screen-text .w.stray { color: #c85a4a; border-bottom: 1px dotted #c85a4a; }
+#screen-text .w.name { color: #9aa7c2; font-style: italic; }
+
+#screen-empty {
+  position: absolute; left: 110px; top: 96px; width: 700px; text-align: center;
+  font-family: Georgia, "Times New Roman", serif; font-size: 15px; line-height: 1.9; color: #4a5160;
+}
+#screen-legend { position: absolute; left: 40px; top: 362px; width: 920px; height: 18px; display: none; }
+.lg { position: relative; float: left; margin-right: 22px; font-size: 11px; color: #6b6f7a; padding-left: 14px; }
+.lg:before { content: ""; position: absolute; left: 0; top: 4px; width: 8px; height: 8px; }
+.lg-target:before { background: #e8a33d; }
+.lg-known:before { background: #b8b2a2; }
+.lg-name:before { background: #9aa7c2; }
+.lg-stray:before { background: #c85a4a; }
+#legend-hint { position: absolute; right: 0; top: 0; font-size: 11px; color: #9a9484; font-style: italic; }
+
+#quiz-q { position: absolute; left: 40px; top: 400px; font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: #9a9484; display: none; }
+.opt {
+  position: absolute; width: 450px; height: 62px; display: none;
+  background: #fff; border: 1px solid #ddd8ca; text-align: left; padding: 0 18px;
+  font-size: 14px; font-family: inherit; color: #22242c; cursor: pointer;
+}
+.opt:hover:not(:disabled) { border-color: #101219; }
+.opt:disabled { cursor: default; }
+.opt.right { background: #e4f2ef; border-color: #4fb3a5; color: #1e5b53; font-weight: 600; }
+.opt.wrong { background: #f7e6e3; border-color: #c85a4a; color: #8e3428; }
+.opt.dim { color: #b5b0a3; }
+#opt-0 { left: 40px; top: 428px; } #opt-1 { left: 510px; top: 428px; }
+#opt-2 { left: 40px; top: 502px; } #opt-3 { left: 510px; top: 502px; }
+
+#verdict { position: absolute; left: 40px; top: 584px; width: 920px; font-size: 16px; display: none; }
+#verdict.right { color: #2f7d72; } #verdict.wrong { color: #a8443a; }
+#quality { position: absolute; left: 40px; top: 700px; width: 920px; font-size: 11px; color: #9a9484; line-height: 1.6; }
+
+/* ------------------------------------------------------------- word list */
+#words-table { position: absolute; left: 40px; top: 130px; width: 920px; height: 600px; overflow-y: auto; }
+.wrow { position: relative; width: 900px; height: 34px; border-bottom: 1px solid #e6e1d4; }
+.wrow .wl { position: absolute; left: 0; top: 9px; font-size: 14px; }
+.wrow .wm { position: absolute; left: 300px; top: 11px; font-size: 11px; color: #9a9484; }
+.wrow .ws { position: absolute; left: 500px; top: 6px; }
+.wrow .ws button { height: 22px; margin-right: 4px; padding: 0 9px; font-size: 11px; border: 1px solid #ddd8ca; background: #fff; cursor: pointer; font-family: inherit; }
+.wrow .ws button.on { background: #101219; color: #f2efe6; border-color: #101219; }
+
+/* --------------------------------------------------------------- overlay */
+#overlay { position: absolute; left: 0; top: 0; width: 1280px; height: 820px; background: rgba(10,11,15,0.72); display: none; }
+#wpanel { position: absolute; left: 300px; top: 40px; width: 680px; height: 740px; background: #f2efe6; }
+#wp-head { position: absolute; left: 0; top: 0; width: 680px; height: 74px; background: #101219; }
+#wp-word { position: absolute; left: 28px; top: 20px; font-size: 26px; font-weight: 300; color: #e8a33d; }
+#wp-lemma { position: absolute; left: 28px; top: 52px; font-size: 11px; color: #6f7482; }
+#wp-close { position: absolute; right: 18px; top: 16px; width: 32px; height: 32px; background: transparent; border: none; color: #6f7482; font-size: 26px; cursor: pointer; line-height: 1; }
+#wp-close:hover { color: #f2efe6; }
+
+#wp-facts { position: absolute; left: 0; top: 74px; width: 680px; height: 40px; background: #e5e0d2; }
+.fact { position: relative; float: left; height: 40px; line-height: 40px; padding: 0 14px; font-size: 11px; color: #5d616c; border-right: 1px solid #d5cfbf; }
+.fact b { color: #22242c; font-weight: 600; }
+
+#wp-body { position: absolute; left: 0; top: 114px; width: 680px; height: 570px; overflow-y: auto; padding: 20px 28px; }
+#wp-loading { font-size: 13px; color: #6b6f7a; padding: 40px 0; text-align: center; }
+
+.sec { position: relative; margin-bottom: 22px; }
+.sec-h { font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase; color: #9a9484; margin-bottom: 9px; }
+.gloss { position: relative; background: #fff; border-left: 3px solid #4fb3a5; padding: 10px 12px; margin-bottom: 7px; font-size: 14px; line-height: 1.55; }
+.gloss em { display: block; margin-top: 6px; font-size: 13px; color: #5d616c; font-family: Georgia, serif; }
+.notthis { position: relative; background: #f7e6e3; border-left: 3px solid #c85a4a; padding: 9px 12px; margin-bottom: 6px; font-size: 13px; color: #8e3428; }
+.syn { position: relative; float: left; margin: 0 6px 6px 0; padding: 5px 10px; background: #fff; border: 1px solid #ddd8ca; font-size: 13px; cursor: pointer; }
+.syn:hover { border-color: #101219; }
+.dpos { font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: #9a9484; margin: 12px 0 6px; }
+.dsense { position: relative; font-size: 13px; line-height: 1.55; padding: 6px 0 6px 14px; border-left: 1px solid #ddd8ca; margin-bottom: 4px; }
+.dlabel { display: inline-block; background: #e8a33d; color: #101219; font-size: 10px; padding: 1px 6px; margin-right: 6px; letter-spacing: 0.5px; text-transform: uppercase; }
+.dex { display: block; color: #6b6f7a; font-family: Georgia, serif; margin-top: 4px; }
+.img { position: relative; float: left; width: 148px; margin: 0 8px 8px 0; }
+.img img { width: 148px; height: 108px; object-fit: cover; display: block; background: #ddd8ca; }
+.img span { display: block; font-size: 9px; color: #9a9484; margin-top: 3px; height: 24px; overflow: hidden; }
+.note { font-size: 12px; color: #a8443a; margin-top: 8px; }
+.srcline { font-size: 11px; color: #9a9484; margin-top: 8px; }
+.srcline a { color: #6b6f7a; }
+
+#wp-actions { position: absolute; left: 0; top: 684px; width: 680px; height: 56px; background: #e5e0d2; }
+.wp-mark { position: absolute; top: 12px; height: 32px; width: 200px; background: #fff; border: 1px solid #ddd8ca; font-size: 12px; cursor: pointer; font-family: inherit; }
+.wp-mark:hover { border-color: #101219; }
+.wp-mark:nth-of-type(1) { left: 28px; }
+.wp-mark:nth-of-type(2) { left: 240px; }
+.wp-mark:nth-of-type(3) { left: 452px; }
+.wp-mark.on { background: #101219; color: #f2efe6; border-color: #101219; }

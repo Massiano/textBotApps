@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>CineTot</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div id="canvas">
+
+  <div id="header">
+    <div id="brand">CINE<span>TOT</span></div>
+    <div id="brand-sub">graded riddles at the edge of what you know</div>
+    <label id="lang-label" for="lang-select">Language</label>
+    <select id="lang-select"></select>
+    <label id="domain-label" for="domain-select">Quiz on</label>
+    <select id="domain-select"></select>
+  </div>
+
+  <div id="rail">
+    <div id="rail-level">Not measured yet</div>
+    <div id="rail-vocab">—</div>
+    <div id="rail-vocab-cap">estimated words known</div>
+
+    <div id="rail-meter"><div id="rail-meter-fill"></div></div>
+    <div id="rail-frontier">frontier —</div>
+
+    <div id="rail-counts">
+      <div class="rc" id="rc-known"><b>0</b><span>known</span></div>
+      <div class="rc" id="rc-learning"><b>0</b><span>learning</span></div>
+      <div class="rc" id="rc-unknown"><b>0</b><span>wanted</span></div>
+    </div>
+
+    <div id="rail-nav">
+      <button class="nav-btn" data-panel="setup">Overview</button>
+      <button class="nav-btn" data-panel="test">Measure my vocabulary</button>
+      <button class="nav-btn" data-panel="interests">My topics</button>
+      <button class="nav-btn" data-panel="play">Play</button>
+      <button class="nav-btn" data-panel="words">My word list</button>
+    </div>
+
+    <div id="rail-foot">Wiktionary · Wikimedia Commons · OpenRouter</div>
+
+    <div id="rail-queue">
+      <div id="rail-queue-h">Next in line to be taught</div>
+      <div id="rail-queue-list"></div>
+    </div>
+  </div>
+
+  <div id="main">
+
+    <!-- ============================================ overview -->
+    <div class="panel" id="panel-setup">
+      <div class="ptitle">Where you stand</div>
+      <div class="ptext" id="setup-text"></div>
+      <div id="setup-steps">
+        <div class="step" id="step-1"><b>1</b><span class="st">Measure your base vocabulary</span><span class="sd">A short word check with invented words mixed in, so guessing shows up in the score.</span><button class="go" data-panel="test">Start</button></div>
+        <div class="step" id="step-2"><b>2</b><span class="st">Say what you like</span><span class="sd">Your topics decide which new words get taught first.</span><button class="go" data-panel="interests">Choose topics</button></div>
+        <div class="step" id="step-3"><b>3</b><span class="st">Play</span><span class="sd">Riddles written inside your vocabulary, plus exactly three new words each round.</span><button class="go" data-panel="play">Play a round</button></div>
+      </div>
+      <div id="setup-bands"></div>
+    </div>
+
+    <!-- ============================================ placement -->
+    <div class="panel" id="panel-test">
+      <div class="ptitle">Which of these do you know?</div>
+      <div class="ptext" id="test-instructions"></div>
+      <div id="test-grid"></div>
+      <div id="test-count">0 selected</div>
+      <button id="test-submit">Score my vocabulary</button>
+      <button id="test-restart">Draw a new set</button>
+      <div id="test-report"></div>
+    </div>
+
+    <!-- ============================================ interests -->
+    <div class="panel" id="panel-interests">
+      <div class="ptitle">What do you actually want to read about?</div>
+      <div class="ptext">Words from your topics get taught before generic ones. Add a few, then tell us which you already know.</div>
+      <input id="topic-input" placeholder="e.g. space travel, cooking, football, horror films" />
+      <button id="topic-add">Add topic</button>
+      <div id="topic-chips"></div>
+      <button id="topic-go">Find topic words</button>
+      <div id="interest-status"></div>
+      <div id="interest-grid"></div>
+      <button id="interest-submit">Save what I know</button>
+    </div>
+
+    <!-- ============================================ play -->
+    <div class="panel" id="panel-play">
+      <button id="play-btn">Give me a riddle</button>
+      <div id="play-status"></div>
+
+      <div id="screen">
+        <div id="screen-emoji"></div>
+        <div id="screen-text"></div>
+        <div id="screen-empty">The riddle appears here.<br>Amber words are the three you have not met yet — click them.</div>
+      </div>
+      <div id="screen-legend">
+        <span class="lg lg-target">new word</span>
+        <span class="lg lg-known">you know this</span>
+        <span class="lg lg-name">a name</span>
+        <span class="lg lg-stray">outside your level</span>
+        <span id="legend-hint">click any word</span>
+      </div>
+
+      <div id="quiz-q">What is being described?</div>
+      <button class="opt" id="opt-0"></button>
+      <button class="opt" id="opt-1"></button>
+      <button class="opt" id="opt-2"></button>
+      <button class="opt" id="opt-3"></button>
+      <div id="verdict"></div>
+      <div id="quality"></div>
+    </div>
+
+    <!-- ============================================ word list -->
+    <div class="panel" id="panel-words">
+      <div class="ptitle">Your word list</div>
+      <div class="ptext">Everything the app has recorded about you in this language. Click a state to change it.</div>
+      <div id="words-table"></div>
+    </div>
+
+  </div>
+
+  <!-- ============================================ word overlay -->
+  <div id="overlay">
+    <div id="wpanel">
+      <div id="wp-head">
+        <span id="wp-word"></span>
+        <span id="wp-lemma"></span>
+        <button id="wp-close">&times;</button>
+      </div>
+      <div id="wp-facts"></div>
+      <div id="wp-body">
+        <div id="wp-loading">Looking it up…</div>
+        <div id="wp-explain"></div>
+        <div id="wp-dict"></div>
+        <div id="wp-images"></div>
+        <div id="wp-notes"></div>
+      </div>
+      <div id="wp-actions">
+        <button class="wp-mark" data-state="known">I know this</button>
+        <button class="wp-mark" data-state="learning">Still learning</button>
+        <button class="wp-mark" data-state="unknown">Teach me this</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script src="/app.js"></script>
+</body>
+</html>
