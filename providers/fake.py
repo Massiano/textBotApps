@@ -9,7 +9,7 @@ draft, then correcting when told which words to replace.
 
 import random
 
-from providers.base import Generator
+from providers.base import Generator, Trace
 
 HARD = ["inscrutable", "luminous", "arid", "peculiar", "resolute",
         "clandestine", "tempestuous", "verdant", "obstinate"]
@@ -33,6 +33,7 @@ class FakeGenerator(Generator):
         self.oracle = oracle
         self.cloze_oracle = cloze_oracle
         self.calls = 0
+        self.trace = Trace()
         self._seen = {}
 
     def models(self, refresh=False):
@@ -49,19 +50,26 @@ class FakeGenerator(Generator):
 
     # ------------------------------------------------------------------
     def json(self, messages, schema, schema_name, model=None, temperature=0.8):
+        import json as _json
+        import time as _time
+        t0 = _time.time()
         self.calls += 1
         mid = model or "fake/alpha"
         last = messages[-1]["content"] if messages else ""
 
         if schema_name == "cinetot_riddle":
-            return self._riddle(messages, last), mid
-        if schema_name == "probe_open":
-            return self._open(last), mid
-        if schema_name in ("probe_forced", "probe_blind"):
-            return self._choice(last, schema_name), mid
-        if schema_name == "probe_cloze":
-            return {"word": self._cloze(last)}, mid
-        return {}, mid
+            out = self._riddle(messages, last)
+        elif schema_name == "probe_open":
+            out = self._open(last)
+        elif schema_name in ("probe_forced", "probe_blind"):
+            out = self._choice(last, schema_name)
+        elif schema_name == "probe_cloze":
+            out = {"word": self._cloze(last)}
+        else:
+            out = {}
+        flat = "\n\n".join(f"[{m['role']}]\n{m['content']}" for m in messages)
+        self.trace.add(mid, schema_name, flat, _json.dumps(out), _time.time() - t0)
+        return out, mid
 
     def text(self, messages, model=None, temperature=0.7, max_tokens=600):
         self.calls += 1
@@ -76,13 +84,18 @@ class FakeGenerator(Generator):
         return m.group(1).strip() if m else None
 
     def _level_of(self, messages):
-        """The prompt states the ceiling; the fake honours it rather than
-        using a fixed word list, so offline runs behave sensibly at any level."""
-        import re
-        for m in messages:
-            hit = re.search(r"the ([\d,]+) most common words", m.get("content", ""))
-            if hit:
-                return int(hit.group(1).replace(",", ""))
+        """Infer the ceiling from the same signal a real model gets.
+
+        The prompt no longer states a rank — a model cannot act on one — so the
+        fake reads the reading-level phrase instead, exactly as a real model
+        would have to. It maps back through the same table the prompt is built
+        from, so the two cannot drift apart.
+        """
+        from content.riddles import READING_LEVEL
+        text = " ".join(m.get("content", "") for m in messages)
+        for limit, phrase in READING_LEVEL:
+            if phrase in text:
+                return min(limit, 8000)
         return 2000
 
     def _pools(self, level):

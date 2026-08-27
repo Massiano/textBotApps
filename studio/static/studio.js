@@ -35,7 +35,8 @@ function showView(v) {
   el("view-" + v).classList.add("on");
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.dataset.view === v));
   ({ coverage: loadCoverage, review: loadQueue, telemetry: loadTelemetry,
-     subjects: loadSubjects, ladder: loadLadder, compose: loadCompose }[v] || (() => {}))();
+     subjects: loadSubjects, ladder: loadLadder, compose: loadCompose,
+     debug: loadDebug }[v] || (() => {}))();
 }
 
 function renderStats(counts) {
@@ -276,6 +277,32 @@ async function probeCurrent() {
   showCard();
 }
 
+/* ----------------------------------------------------------------- debug */
+
+async function loadDebug() {
+  const d = await api("api/debug?n=12");
+  const cooling = Object.keys(d.cooldowns || {});
+  el("dbg-head").innerHTML =
+    `generator <b>${esc(d.generator)}</b> · key ${d.key_set
+      ? "<b>set</b>" : `<span class="warn">not set</span>`}`
+    + ` · <b>${d.calls}</b> calls this process`
+    + ` · auto-probe <b>${d.auto_probe ? "on" : "off"}</b>`
+    + (cooling.length ? ` · <span class="warn">rate-limited: ${cooling.map(esc).join(", ")}</span>` : "")
+    + `<br><span style="color:#5d6473">solvers: ${(d.models || []).map(esc).join(", ") || "none resolved"}</span>`;
+
+  el("dbg-rows").innerHTML = d.exchanges.length
+    ? d.exchanges.map((e) => `
+      <div class="ex ${e.error ? "err" : ""}">
+        <div class="exh"><span class="t">${esc(e.at)}</span>
+          <b>${esc(e.model)}</b> · ${esc(e.purpose)} · ${e.seconds}s</div>
+        <pre class="p">${esc(e.prompt)}</pre>
+        <pre class="r">${esc(e.reply) || "(empty)"}</pre>
+        ${e.error ? `<div class="e">${esc(e.error)}</div>` : ""}
+      </div>`).join("")
+    : `<div style="color:#6b7280;font-size:12px">No calls yet this process. `
+      + `Try one now on the Coverage tab.</div>`;
+}
+
 /* --------------------------------------------------------------- compose */
 
 let cwTimer = null, cwOk = false;
@@ -512,6 +539,7 @@ function init() {
   S.poll = setInterval(() => {
     loadOverview().catch(() => {});
     if (S.view === "coverage") loadCoverage().catch(() => {});
+    if (S.view === "debug") loadDebug().catch(() => {});
   }, 3000);
 }
 

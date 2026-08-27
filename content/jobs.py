@@ -112,7 +112,8 @@ class Worker:
                     done += 1
                     self.note(f"{lang}/{domain}@{level}: {payload['answer']} "
                               f"— {len(payload['new'])} new, {payload['drafts']} drafts")
-                    store.enqueue("probe", lang, domain, level, want=1, note=rid)
+                    if config.PROBE_AUTOMATICALLY:
+                        store.enqueue("probe", lang, domain, level, want=1, note=rid)
                 else:
                     failed += 1
                     self.note(f"{lang}/{domain}@{level}: rejected — {payload['reject_reason']}")

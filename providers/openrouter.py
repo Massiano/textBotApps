@@ -14,7 +14,7 @@ import time
 import requests
 
 import config
-from providers.base import Generator
+from providers.base import Generator, Trace
 
 API = "https://openrouter.ai/api/v1"
 CATALOG_TTL = 60 * 30
@@ -66,6 +66,7 @@ class OpenRouter(Generator):
         self._cooldown = {}          # model -> unix time it becomes usable again
         self._lock = threading.Lock()
         self.calls = 0
+        self.trace = Trace()
 
     # -- plumbing --------------------------------------------------------
     def _headers(self):
@@ -132,6 +133,7 @@ class OpenRouter(Generator):
     def json(self, messages, schema, schema_name, model=None, temperature=0.8):
         candidates = [model] if model else self.available()
         last = None
+        flat = "\n\n".join(f"[{m['role']}]\n{m['content']}" for m in messages)
         for mid in candidates[:6]:
             payload = {
                 "model": mid, "messages": messages, "temperature": temperature,
@@ -139,6 +141,7 @@ class OpenRouter(Generator):
                     "name": schema_name, "strict": True, "schema": schema}},
             }
             for attempt in (0, 1):
+                t0 = time.time()
                 try:
                     self.calls += 1
                     r = requests.post(f"{API}/chat/completions", headers=self._headers(),
@@ -151,9 +154,14 @@ class OpenRouter(Generator):
                     body = r.json()
                     if "error" in body and not body.get("choices"):
                         raise RuntimeError(body["error"].get("message", "model error"))
-                    return extract_json(body["choices"][0]["message"]["content"]), mid
+                    raw = body["choices"][0]["message"]["content"]
+                    parsed = extract_json(raw)
+                    self.trace.add(mid, schema_name, flat, raw, time.time() - t0)
+                    return parsed, mid
                 except Exception as e:
                     last = e
+                    self.trace.add(mid, schema_name, flat, locals().get("raw", ""),
+                                   time.time() - t0, error=str(e))
                     if attempt == 0:
                         # Some free models reject json_schema outright. Retry
                         # the same model plainly, with the schema inlined.

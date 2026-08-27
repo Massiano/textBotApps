@@ -242,3 +242,19 @@ body {
 #sa-go { position: relative; float: left; height: 30px; padding: 0 16px; background: #e8a33d; border: none; color: #10131a; font-weight: 600; cursor: pointer; font-family: inherit; font-size: 12px; }
 #sa-msg { position: relative; float: left; line-height: 30px; margin-left: 14px; font-size: 11px; color: #6b7280; }
 #subj-rows { height: 580px; }
+
+
+/* ----------------------------------------------------------------- debug */
+#dbg-head { position: absolute; left: 24px; top: 92px; width: 1340px; height: 34px; font-size: 12px; color: #8b92a3; }
+#dbg-head b { color: #d7d3c8; }
+#dbg-head .warn { color: #c85a4a; }
+#dbg-rows { position: absolute; left: 24px; top: 134px; width: 1340px; height: 630px; overflow-y: auto; }
+.ex { position: relative; width: 1320px; margin-bottom: 10px; background: #171a21; border-left: 3px solid #2c313d; padding: 10px 12px; }
+.ex.err { border-left-color: #c85a4a; }
+.ex .exh { font-size: 11px; color: #6b7280; margin-bottom: 6px; }
+.ex .exh b { color: #d7d3c8; }
+.ex .exh .t { color: #4a5160; margin-right: 10px; }
+.ex pre { white-space: pre-wrap; word-break: break-word; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11px; line-height: 1.5; margin: 0; }
+.ex .p { color: #7d8494; max-height: 150px; overflow-y: auto; }
+.ex .r { color: #cdd3a8; margin-top: 8px; padding-top: 8px; border-top: 1px solid #232830; max-height: 120px; overflow-y: auto; }
+.ex .e { color: #c85a4a; margin-top: 6px; font-size: 11px; }

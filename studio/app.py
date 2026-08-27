@@ -178,7 +178,7 @@ def generate_one():
     if not payload["accepted_vocab"]:
         return jsonify(out)
 
-    if b.get("probe", True):
+    if b.get("probe", config.PROBE_AUTOMATICALLY):
         from content import probes
         r = store.get_riddle(rid)
         try:
@@ -194,6 +194,25 @@ def generate_one():
             out["probe_error"] = str(e)
     out["seconds"] = round(time.time() - started, 1)
     return jsonify(out)
+
+
+@app.route("/api/debug")
+def debug():
+    """The last exchanges with the model, verbatim.
+
+    Without this a stalled run is indistinguishable from a broken one: you
+    cannot tell an ignored prompt from a rate limit from an empty reply.
+    """
+    trace = getattr(GEN, "trace", None)
+    return jsonify({
+        "generator": GEN.name,
+        "key_set": bool(config.OPENROUTER_API_KEY),
+        "calls": getattr(GEN, "calls", 0),
+        "cooldowns": getattr(GEN, "cooldowns", lambda: {})(),
+        "models": _solvers(),
+        "auto_probe": config.PROBE_AUTOMATICALLY,
+        "exchanges": trace.recent(int(request.args.get("n", 12))) if trace else [],
+    })
 
 
 @app.route("/api/worker", methods=["POST"])

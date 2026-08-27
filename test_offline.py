@@ -343,6 +343,46 @@ def test_generate_one_reports_synchronously():
     print(f"generate one          ok  ({'accepted' if r['ok'] else 'rejected, reason given'})")
 
 
+def test_prompt_gives_an_instruction_a_model_can_follow():
+    """A rank number is not actionable: a model has no frequency list and
+    cannot tell rank 2,000 from 12,000. It guessed, and the loop brute-forced
+    the guess. A school reading level is a register it has actually seen."""
+    from content import store as cs
+    subj = cs.subjects("movies")[0]
+    msgs = riddles._prompt("English", 1200, subj, "movies",
+                           {"sentences": [4, 7], "words_per_sentence": [8, 14]}, [], [])
+    text = " ".join(m["content"] for m in msgs)
+    assert "most common words" not in text, "rank counts are not followable"
+    assert "eight-year-old" in text, text
+    assert riddles.reading_level(600) != riddles.reading_level(5000)
+
+
+def test_register_examples_never_leak_corpus_noise():
+    """Sampling the raw frequency list surfaced place names and profanity —
+    bad in any prompt, worse in one asking for a children's reading level."""
+    import random
+    got = riddles._register_examples("en", "movies", 1200, random.Random(1))
+    # Nothing accepted yet in this cell, so no examples rather than noise.
+    assert got == [], got
+
+
+def test_probes_are_off_the_hot_path():
+    """Probing costs several times what generation does, and free tiers
+    rate-limit hard enough that running it concurrently just yields 429s."""
+    assert config.PROBE_AUTOMATICALLY is False
+
+
+def test_debug_endpoint_shows_real_traffic():
+    from studio import app as S
+    c = S.app.test_client()
+    c.post("/api/generate/one", json={"lang": "en", "domain": "movies", "level": 1200})
+    d = c.get("/api/debug").get_json()
+    assert d["exchanges"], "a stuck run must be distinguishable from a broken one"
+    e = d["exchanges"][0]
+    assert e["prompt"] and "purpose" in e and "seconds" in e, e
+    print(f"debug trace           ok  ({len(d['exchanges'])} exchanges captured)")
+
+
 def test_studio_mounts_under_a_prefix():
     """Single-service hosts need both apps in one process; relative asset and
     API paths are what make the mount work."""
@@ -405,6 +445,9 @@ TESTS = [
     test_solver_panel_survives_stale_model_ids,
     test_corpus_first_serving_and_writeback,
     test_frontier_retreats_faster_than_it_advances,
+    test_prompt_gives_an_instruction_a_model_can_follow,
+    test_register_examples_never_leak_corpus_noise,
+    test_probes_are_off_the_hot_path, test_debug_endpoint_shows_real_traffic,
     test_studio_api, test_generate_one_reports_synchronously,
     test_studio_mounts_under_a_prefix,
     test_bootstrap_matches_what_the_ui_reads, test_web_api,

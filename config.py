@@ -106,7 +106,12 @@ PROBE_MODELS = [
 ]
 PROBE_MIN_SOLVERS = 1            # at least this many must recover the subject
 PROBE_OPTIONS_ONLY_MAX = 0.5     # chance is 0.25 with four options
-PROBE_BLIND_SAMPLES = 4          # one sample cannot estimate a chance rate     # options-only accuracy above this means the option set leaks
+PROBE_BLIND_SAMPLES = 3          # one sample cannot estimate a chance rate
+# Probing costs ~9 sequential calls per riddle, several times generation. Free
+# tiers rate-limit hard enough that running them concurrently just yields 429s,
+# so the lever is fewer calls, not parallel ones. Off by default: generate
+# first, probe the ones worth keeping from the review queue.
+PROBE_AUTOMATICALLY = os.environ.get("PROBE_AUTOMATICALLY", "0") == "1"     # options-only accuracy above this means the option set leaks
 
 DOMAIN_IDS = ["movies", "books", "history", "people", "songs", "games",
               "animals", "inventions"]

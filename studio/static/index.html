@@ -27,6 +27,7 @@
     <button class="tab" data-view="compose">Write</button>
     <button class="tab" data-view="subjects">Subjects</button>
     <button class="tab" data-view="ladder">Ladder</button>
+    <button class="tab" data-view="debug">Debug</button>
   </div>
 
   <div id="stats"></div>
@@ -89,6 +90,14 @@
     <div id="tel-fails"></div>
     <div class="sh" id="sh-cells">Cells worked</div>
     <div id="tel-cells"></div>
+  </div>
+
+  <!-- ================================================= debug -->
+  <div class="view" id="view-debug">
+    <div class="vh">Model traffic</div>
+    <div class="vs">The last exchanges verbatim. If a run seems stuck, this says whether anything was sent, what came back, and how long it took.</div>
+    <div id="dbg-head"></div>
+    <div id="dbg-rows"></div>
   </div>
 
   <!-- ================================================= compose -->

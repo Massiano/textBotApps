@@ -83,35 +83,55 @@ def text_stats(text, lang):
             "words_per_sentence": round(words / max(1, len(sentences)), 1)}
 
 
+# A rank number is not an instruction. A model has no frequency list and cannot
+# tell rank 2,000 from rank 12,000, so "use the 2000 most common words" is
+# unspecifiable and gets guessed at. A school reading level is a register the
+# model has actually seen and can hit on the first try. The exact ceiling is
+# enforced afterwards by the verifier, which is the part that can be precise.
+READING_LEVEL = [
+    (600,   "a six-year-old child, the very first reading book"),
+    (1200,  "an eight-year-old child, a simple picture story"),
+    (2500,  "a nine-year-old child, a short chapter book"),
+    (5000,  "a twelve-year-old child"),
+    (10**9, "a teenager reading a newspaper"),
+]
+
+
+def reading_level(level):
+    for limit, phrase in READING_LEVEL:
+        if level <= limit:
+            return phrase
+    return READING_LEVEL[-1][1]
+
+
 def _prompt(lang_name, level, subject, domain, style, sample, avoid):
     kind, secrecy = DOMAIN_RULES.get(domain, DOMAIN_RULES["movies"])
     lo, hi = style["words_per_sentence"]
     s_lo, s_hi = style["sentences"]
+    audience = reading_level(level)
 
     system = (
-        f"You write for someone learning {lang_name} who knows roughly the "
-        f"{level} most common words of the language and no more. You write only "
-        f"in {lang_name}. You use short plain sentences and no idioms. When you "
-        "want a word the reader will not know, you choose a simpler one instead."
+        f"You write in very simple {lang_name} for {audience}. "
+        "Short sentences. Everyday words only. No idioms, no wordplay, no "
+        "figures of speech. If a plain word exists, you use it."
     )
 
-    user = f"""Describe {kind} so that a reader can guess which one it is: **{subject['title']}**.
+    user = f"""Describe {kind} so a reader can guess which one it is: **{subject['title']}**.
 
-{secrecy} The reader must work it out from what happens.
+{secrecy} The reader works it out from what happens.
 
-Write {s_lo} to {s_hi} sentences, about {lo}-{hi} words each, in {lang_name}.
-Describe concrete events and things that can be pictured.
-
-Almost every word must be among the {level} most common words in {lang_name}.
-One or two unusual words are fine and welcome — they are what the reader
-learns. Many unusual words are not.
-
-Common words you may freely use include: {', '.join(sample)}.
+Write {s_lo} to {s_hi} sentences, about {lo}-{hi} words each.
+Say what happens: people, places, actions that can be pictured.
+Write for {audience}.
 
 Choose one emoji that suits it."""
 
+    if sample:
+        user += ("\n\nWords at the right level, from stories that worked: "
+                 + ", ".join(sample) + ".")
     if avoid:
-        user += "\n\nRecently used, do not describe these: " + ", ".join(list(avoid)[:15]) + "."
+        user += "\n\nDo not describe these, they were used recently: " + \
+                ", ".join(list(avoid)[:12]) + "."
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
@@ -126,7 +146,10 @@ def generate(gen, lang, lang_name, domain, level, subject=None, rng=None,
 
     known = vocab.build_known_set(lang, level, extra=known_extra, minus=unknown)
     lex = corpus.get(lang)
-    sample = rng.sample(lex.lemmas[200:min(level, 1200)], min(45, max(1, min(level, 1200) - 200)))
+    # A random sample of the frequency list is noise — it surfaces corpus junk
+    # like "obama" and "october" and steers nothing. A dozen concrete words
+    # near the top of the level demonstrate the register instead.
+    sample = _register_examples(lang, domain, level, rng)
     style = style_card(lang, domain, level)
 
     messages = _prompt(lang_name, level, subject, domain, style, sample, avoid)
@@ -171,6 +194,30 @@ def generate(gen, lang, lang_name, domain, level, subject=None, rng=None,
         "stats": {**text_stats(text, lang), "seconds": round(time.time() - started, 1)},
         "accepted_vocab": ok,
     }
+
+
+def _register_examples(lang, domain, level, rng, n=12):
+    """Words drawn from riddles already accepted in this cell.
+
+    Sampling the raw frequency list produced noise — corpus junk, place names
+    and profanity — which is worse than no examples at all when the instruction
+    is "write for an eight-year-old". Accepted riddles have been through review,
+    so their vocabulary is known-good, in-level and actually usable in a
+    retelling. With none yet, no examples are shown and the reading level
+    carries the prompt alone.
+    """
+    import json
+    rows = store.rows(
+        "SELECT lemmas_json FROM riddle WHERE lang=? AND domain=? AND status='accepted' "
+        "AND ABS(level - ?) < 1500 ORDER BY created_at DESC LIMIT 25",
+        (lang, domain, level))
+    pool = set()
+    for r in rows:
+        for w in json.loads(r["lemmas_json"] or "[]"):
+            if 3 <= len(w) <= 9 and w.isalpha():
+                pool.add(w)
+    pool = sorted(pool)
+    return rng.sample(pool, min(n, len(pool))) if len(pool) >= 6 else []
 
 
 def _repair_note(repair):
