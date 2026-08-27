@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>CineTot Studio</title>
+<link rel="stylesheet" href="/studio.css" />
+</head>
+<body>
+<div id="canvas">
+
+  <div id="top">
+    <div id="brand">CINETOT <span>STUDIO</span></div>
+    <label class="tl" id="l-lang">lang</label><select id="lang"></select>
+    <label class="tl" id="l-domain">domain</label><select id="domain"></select>
+    <div id="gen-badge"></div>
+    <div id="worker-box">
+      <span id="worker-dot"></span>
+      <span id="worker-text">idle</span>
+      <button id="worker-toggle">start</button>
+    </div>
+  </div>
+
+  <div id="tabs">
+    <button class="tab on" data-view="coverage">Coverage</button>
+    <button class="tab" data-view="review">Review<span class="badge" id="badge-review"></span></button>
+    <button class="tab" data-view="telemetry">Yield</button>
+    <button class="tab" data-view="subjects">Subjects</button>
+    <button class="tab" data-view="ladder">Ladder</button>
+  </div>
+
+  <div id="stats"></div>
+
+  <!-- ================================================= coverage -->
+  <div class="view on" id="view-coverage">
+    <div class="vh">Words that can actually be taught</div>
+    <div class="vs">A band is covered when a teachable lemma has at least one accepted riddle whose ceiling is low enough to reach it. Three is the target.</div>
+    <div id="cov-rows"></div>
+    <div id="cov-thin">
+      <div class="sh">Not yet covered</div>
+      <div id="cov-thin-words"></div>
+    </div>
+    <div id="gen-panel">
+      <div class="sh">Generate</div>
+      <div id="gen-levels"></div>
+      <label class="gl">riddles per level</label>
+      <input id="gen-want" type="number" value="5" min="1" max="200" />
+      <button id="gen-go">Queue work</button>
+      <div id="gen-note"></div>
+    </div>
+    <div id="joblist"></div>
+  </div>
+
+  <!-- ================================================= review -->
+  <div class="view" id="view-review">
+    <div class="vh">Review queue</div>
+    <div class="vs">Vocabulary and solvability are already checked. Judge only what the machine cannot: does it read naturally, is it interesting, is it appropriate.</div>
+    <div id="rev-empty">Nothing waiting. Generate some riddles first.</div>
+    <div id="rev-card">
+      <div id="rev-meta"></div>
+      <div id="rev-text"></div>
+      <div id="rev-options"></div>
+      <div id="rev-machine"></div>
+      <div id="rev-actions">
+        <button id="rev-accept">Accept <b>A</b></button>
+        <button id="rev-reject">Reject <b>R</b></button>
+        <button id="rev-skip">Skip <b>S</b></button>
+        <button id="rev-probe">Run probes <b>P</b></button>
+      </div>
+      <input id="rev-note" placeholder="note (optional)" />
+    </div>
+    <div id="rev-progress"></div>
+  </div>
+
+  <!-- ================================================= telemetry -->
+  <div class="view" id="view-telemetry">
+    <div class="vh">Yield</div>
+    <div class="vs">Drafts per acceptance, per model. This is what refinement optimises — the numbers here should drive which models are preferred.</div>
+    <div id="tel-models"></div>
+    <div class="sh" id="sh-probe">Probe outcomes</div>
+    <div id="tel-probes"></div>
+    <div class="sh" id="sh-fail">Why drafts are rejected</div>
+    <div id="tel-fails"></div>
+    <div class="sh" id="sh-cells">Cells worked</div>
+    <div id="tel-cells"></div>
+  </div>
+
+  <!-- ================================================= subjects -->
+  <div class="view" id="view-subjects">
+    <div class="vh">Subjects</div>
+    <div class="vs">Recognizability is hand-curated — models know far more films than people do. Retellability is overwritten by the probe panel as evidence arrives.</div>
+    <div id="subj-head">
+      <span class="sc1">title</span><span class="sc2">recog</span>
+      <span class="sc3">retell</span><span class="sc4">min level</span>
+      <span class="sc5">group</span><span class="sc6">riddles</span><span class="sc7">status</span>
+    </div>
+    <div id="subj-rows"></div>
+  </div>
+
+  <!-- ================================================= ladder -->
+  <div class="view" id="view-ladder">
+    <div class="vh">Teaching ladder</div>
+    <div class="vs">The frequency list minus what is not worth a riddle. Heuristic verdicts are overridable, and an override always wins.</div>
+    <div id="lad-controls">
+      <label class="gl">from rank</label><input id="lad-lo" type="number" value="1000" />
+      <button id="lad-go">Show</button>
+    </div>
+    <div id="lad-rows"></div>
+  </div>
+
+</div>
+<script src="/studio.js"></script>
+</body>
+</html>

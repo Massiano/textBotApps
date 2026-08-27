@@ -77,12 +77,42 @@ BANDS = [
 MAX_RANK = 40000          # depth of the lemma list we build per language
 ITEMS_PER_BAND = 6        # real words shown per band in the placement test
 PSEUDO_RATIO = 0.30       # share of the test made up of invented words
-FUNCTION_FLOOR = 250      # top-N lemmas always treated as available
+FUNCTION_FLOOR = 250
+# Cognate error is one-directional and comprehension failure is expensive, so
+# the initial frontier lands deliberately low and play pushes it out.
+FRONTIER_BIAS = 0.85      # top-N lemmas always treated as available
 
 # --- Generation ------------------------------------------------------------
-TARGET_WORDS_PER_ROUND = 3       # the "+3" of i+1
-MAX_GENERATION_RETRIES = 2       # vocabulary-violation feedback loop
-LEAK_TOLERANCE = 3               # accept a round with at most this many strays
+# KNOWN + N. The identity of the new words is not fixed in advance; the count
+# and the distance are. A text is acceptable when it overflows the learner's
+# known set by between MIN and MAX lemmas, all inside the next shell.
+MIN_NEW_WORDS = 1
+MAX_NEW_WORDS = 3
+CONSOLIDATION_RATE = 0.10        # share of rounds deliberately served with zero new words
+
+# The next shell out: ranks up to frontier * FACTOR + MARGIN.
+SHELL_FACTOR = 1.35
+SHELL_MARGIN = 250
+
+MAX_GENERATION_RETRIES = 2       # repair loop passes
+LEAK_TOLERANCE = 3               # live fallback only; offline acceptance is strict
+
+# Solver panel for the probe gate. Chosen for a capability spread, not for
+# quality: the weakest model that still solves a riddle is the difficulty proxy.
+PROBE_MODELS = [
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "qwen/qwen-2.5-72b-instruct:free",
+    "mistralai/mistral-nemo:free",
+]
+PROBE_MIN_SOLVERS = 1            # at least this many must recover the subject
+PROBE_OPTIONS_ONLY_MAX = 0.5     # chance is 0.25 with four options
+PROBE_BLIND_SAMPLES = 4          # one sample cannot estimate a chance rate     # options-only accuracy above this means the option set leaks
+
+DOMAIN_IDS = ["movies", "books", "history", "people", "songs", "games",
+              "animals", "inventions"]
+
+CONTENT_DB = Path(os.environ.get("CINETOT_CONTENT_DB", DATA_DIR / "content.sqlite3"))
+STUDIO_PATH = os.environ.get("STUDIO_PATH", "studio")
 
 PREFERRED_MODELS = [
     "google/gemini-2.0-flash-exp:free",

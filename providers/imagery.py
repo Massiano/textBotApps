@@ -15,6 +15,7 @@ import time
 import requests
 
 import config
+from providers.base import ImageProvider
 
 COMMONS = "https://commons.wikimedia.org/w/api.php"
 OPENVERSE = "https://api.openverse.org/v1/images/"
@@ -108,3 +109,10 @@ _TAG = _re.compile(r"<[^>]+>")
 
 def _strip(s):
     return _TAG.sub("", s or "").strip()
+
+
+class Commons(ImageProvider):
+    name = "commons"
+
+    def search(self, query, limit=4):
+        return search(query, limit)

@@ -256,15 +256,13 @@ async function playRound() {
       b.onclick = () => guess(opt);
     });
 
-    const q = r.quality;
     el("play-status").textContent = "";
-    el("quality").innerHTML =
-      `Teaching: <b>${r.targets.map(escapeHtml).join(", ")}</b> · `
-      + `${q.attempts} draft${q.attempts > 1 ? "s" : ""} · `
-      + (q.controlled
-          ? "every other word is inside your vocabulary."
-          : `${q.violations.length} word${q.violations.length > 1 ? "s" : ""} slipped past the limit `
-            + `(${q.violations.map(escapeHtml).join(", ")}) — shown in red, click them too.`);
+    el("quality").innerHTML = r.new.length
+      ? `New here: <b>${r.new.map(escapeHtml).join(", ")}</b>`
+        + ` · everything else is inside your vocabulary`
+        + (r.source === "live" ? " · written just now" : "")
+      : `Nothing new in this one — read it for speed.`
+        + (r.source === "live" ? " · written just now" : "");
     refreshProfile();
   } catch (e) {
     el("play-status").textContent = e.message;
@@ -455,10 +453,6 @@ function init() {
   el("test-submit").onclick = () => submitTest().catch((e) => { el("test-report").textContent = e.message; });
   el("test-restart").onclick = () => startTest();
 
-  el("topic-add").onclick = addTopic;
-  el("topic-input").onkeydown = (e) => { if (e.key === "Enter") addTopic(); };
-  el("topic-go").onclick = findTopicWords;
-  el("interest-submit").onclick = () => submitInterest().catch((e) => { el("interest-status").textContent = e.message; });
 
   el("play-btn").onclick = playRound;
 

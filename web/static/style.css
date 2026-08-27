@@ -152,7 +152,7 @@ body {
 #screen-text.rtl { direction: rtl; }
 #screen-text .w { cursor: pointer; padding: 1px 1px; border-radius: 2px; }
 #screen-text .w:hover { background: #2a2f3c; }
-#screen-text .w.target { color: #e8a33d; border-bottom: 2px solid #e8a33d; font-weight: bold; }
+#screen-text .w.new { color: #e8a33d; border-bottom: 2px solid #e8a33d; font-weight: bold; }
 #screen-text .w.stray { color: #c85a4a; border-bottom: 1px dotted #c85a4a; }
 #screen-text .w.name { color: #9aa7c2; font-style: italic; }
 

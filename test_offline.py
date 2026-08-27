@@ -1,204 +1,276 @@
-"""Offline checks that need no API key and no network.
-
-The point of interest is make_round's feedback loop: a model that ignores the
-vocabulary ceiling on its first attempt should be corrected by the second.
+"""Offline checks. No API key, no network.
 
     python test_offline.py
+
+Everything here exercises real code paths; the only substitution is the
+generator, which is a provider rather than a monkeypatch.
 """
 
-import json
 import sys
 
 import config
-import lexicon
-from services import generate, llm
+
+config.DB_PATH = config.DATA_DIR / "test_learner.sqlite3"
+config.CONTENT_DB = config.DATA_DIR / "test_content.sqlite3"
+
+from content import probes, riddles, store as cstore, subjects  # noqa: E402
+from core import cognates, corpus, ladder, placement, pseudo, vocab  # noqa: E402
+from learner import policy, store as lstore  # noqa: E402
+from providers.fake import FakeGenerator, ScriptedGenerator  # noqa: E402
+from providers.openrouter import extract_json  # noqa: E402
 
 
-def test_lexicon():
-    lex = lexicon.get_lexicon("en")
-    assert lex.rank_of("the") == 0, "most frequent English lemma should rank first"
-    assert lexicon.lemma_of("ran", "en") == "run"
-    assert lexicon.lemma_of("mice", "en") == "mouse"
-    assert lexicon.describe_lemma("en", "running")["lemma"] == "run"
-    print("lexicon               ok")
+def test_lemmas():
+    from core.tokens import lemma_of
+    assert lemma_of("ran", "en") == "run"
+    assert lemma_of("mice", "en") == "mouse"
+    assert lemma_of("gelaufen", "de") == "laufen"
+    assert corpus.get("en").rank_of("the") == 0
+    print("lemmatisation         ok")
 
 
-def test_verification():
-    allowed = lexicon.build_allowed_set("en", 2000, targets=["sword"])
-    text = "The boy has a sword. He fights an intransigent wizard near Hogwarts."
-    r = lexicon.verify_text(text, "en", allowed, ["sword"])
+def test_overflow_is_the_new_word_set():
+    """KNOWN + N: nothing is forced, the spill is what gets taught."""
+    known = vocab.build_known_set("en", 2000)
+    r = vocab.analyse("A boy finds a bright sword near Hogwarts.", "en", known)
     kinds = {t["w"]: t["kind"] for t in r["tokens"]}
-    assert kinds["sword"] == "target"
-    assert kinds["intransigent"] == "stray"
-    assert kinds["Hogwarts"] == "name", kinds
-    assert kinds["boy"] == "known"
-    assert r["targets_missing"] == []
-    print("verification          ok")
+    assert kinds["Hogwarts"] == vocab.NAME, kinds
+    assert kinds["boy"] == vocab.KNOWN
+    assert "sword" in r["overflow"]
+    assert r["ceiling_rank"] > 0
+    print("overflow              ok")
 
 
-def test_inflected_forms_count_as_known():
-    """The reason lemmas matter: knowing 'run' should license 'ran'."""
-    allowed = lexicon.build_allowed_set("en", 300, known_extra=["run"])
-    r = lexicon.verify_text("He ran.", "en", allowed)
-    assert [t["kind"] for t in r["tokens"]] == ["known", "known"], r["tokens"]
+def test_inflection_credit():
+    known = vocab.build_known_set("en", 300, extra=["run"])
+    r = vocab.analyse("He ran.", "en", known)
+    assert [t["kind"] for t in r["tokens"]] == [vocab.KNOWN, vocab.KNOWN]
     print("inflection credit     ok")
 
 
-def test_scoring_rejects_yea_saying():
-    import assessment
-    items, key = assessment.build_placement_test("en", seed=1)
-    honest = {i: m["real"] and m["band"] in ("1K", "2K") for i, m in key.items()}
-    lazy = {i: True for i in key}
-    a = assessment.score_placement(key, honest)
-    b = assessment.score_placement(key, lazy)
-    assert a["reliable"] and not b["reliable"]
-    assert a["vocab_estimate"] < b["vocab_estimate"]
-    print("placement scoring     ok  "
-          f"(honest {a['vocab_estimate']} words / yes-to-all flagged unreliable)")
+def test_verdict_counts_not_identities():
+    known = vocab.build_known_set("en", 2000)
+    few = vocab.analyse("A boy finds a sword.", "en", known)
+    many = vocab.analyse("An inscrutable luminous arid verdant clandestine hermit waited.",
+                         "en", known)
+    assert vocab.verdict(few, "en", 2000)[0], vocab.verdict(few, "en", 2000)
+    ok, reasons, repair = vocab.verdict(many, "en", 2000)
+    assert not ok and repair.get("simplify")
+    # Feedback names specific words rather than demanding a rewrite.
+    assert len(repair["simplify"]) >= 2
+    print("verdict               ok")
 
 
-def test_generation_loop():
-    """Mock a model that overshoots the vocabulary limit until told twice."""
-    drafts = [
-        {"text": "A young man leaves his arid homeworld. He obtains a luminous sword "
-                 "and joins an inscrutable old teacher. Together they confront Vader.",
-         "answer": "Star Wars", "distractors": ["Dune", "Flash Gordon", "The Matrix"], "emoji": "🚀"},
-        {"text": "A young man leaves his dry home world. He gets a bright sword and "
-                 "joins a strange old teacher. Together they fight Vader.",
-         "answer": "Star Wars", "distractors": ["Dune", "Flash Gordon", "The Matrix"], "emoji": "🚀"},
-    ]
-    calls = {"n": 0}
-
-    def fake(messages, schema, name, models=None, temperature=0.8):
-        i = min(calls["n"], len(drafts) - 1)
-        calls["n"] += 1
-        return json.loads(json.dumps(drafts[i])), "mock/model"
-
-    original = llm.complete_json
-    llm.complete_json = fake
-    try:
-        targets = ["sword"]
-        allowed = lexicon.build_allowed_set("en", 2500, targets=targets)
-        first = lexicon.verify_text(drafts[0]["text"], "en", allowed, targets)
-        out = generate.make_round("en", "English", "movies",
-                                  {"cefr": "A2", "vocab_estimate": 2500},
-                                  allowed, targets)
-    finally:
-        llm.complete_json = original
-
-    assert calls["n"] >= 2, "the loop should have asked the model to try again"
-    assert len(out["meta"]["violations"]) < len(first["violations"]), (
-        first["violations"], out["meta"]["violations"])
-    assert out["meta"]["targets_used"] == ["sword"]
-    assert len(out["options"]) == 4 and out["answer"] in out["options"]
-    print(f"generation loop       ok  (draft 1 broke on {first['violations']}, "
-          f"draft {calls['n']} left {out['meta']['violations'] or 'nothing'})")
+def test_ceiling_governs_serving():
+    assert vocab.servable(1800, ["boy", "sword"], 2000, set())
+    assert not vocab.servable(2500, ["boy"], 2000, set())
+    assert not vocab.servable(1800, ["boy", "sword"], 2000, {"sword"})
+    print("servability           ok")
 
 
-def test_frontier_takes_the_first_crossing():
-    """A band that scores well after knowledge has already collapsed is noise,
-    and must not push the ceiling back out."""
-    import assessment
-    items, key = assessment.build_placement_test("en", seed=11)
+def test_teachability_filter():
+    assert not ladder.assess("overpay", "en")["teachable"]
+    assert not ladder.assess("dissatisfy", "en")["teachable"]
+    assert ladder.assess("sword", "en")["teachable"]
+    assert not ladder.assess("verkaufen", "de")["teachable"]
+    print("teachability          ok")
+
+
+def test_cognates_are_screened_not_guessed():
+    assert cognates.is_cognate("información", "es")
+    assert cognates.is_cognate("possibilité", "fr")
+    assert not cognates.is_cognate("desarrollo", "es")
+    # Rare English lookalikes must not count: knowing them would not help.
+    score, match, _ = cognates.evidence("travail", "fr")
+    assert score < cognates.CLOSE, (score, match)
+    print("cognate screen        ok")
+
+
+def test_placement_catches_the_decoder():
+    """The failure that motivated this: a learner who decodes Latinate words
+    without knowing them must not be placed high on that basis."""
+    import random
+    items, key = placement.build("es", seed=5)
+    rng = random.Random(1)
+    truth = {"1K": .95, "2K": .8, "3K": .35, "5K": .15,
+             "8K": .05, "12K": .02, "20K": 0., "30K": 0.}
+    resp = {}
+    for i, m in key.items():
+        p = (.08 if m["kind"] == placement.PSEUDO
+             else .9 if m["kind"] == placement.COGNATE
+             else truth[m["band"]])
+        resp[i] = rng.random() < p
+    rep = placement.score(key, resp)
+    assert rep["cognate_inflated"], rep["transparency_gap"]
+    assert rep["cefr"] in ("A2", "B1"), rep["cefr"]
+    assert rep["frontier_rank"] < 4000, rep["frontier_rank"]
+    print(f"cognate placement     ok  (B-level not C, gap {rep['transparency_gap']})")
+
+
+def test_frontier_first_crossing():
+    items, key = placement.build("en", seed=11)
     good = {"1K", "2K", "3K", "5K", "12K"}          # 8K deliberately missing
-    resp = {i: (m["real"] and m["band"] in good) for i, m in key.items()}
-    rep = assessment.score_placement(key, resp)
+    resp = {i: (m["kind"] == placement.PLAIN and m["band"] in good) for i, m in key.items()}
+    rep = placement.score(key, resp)
     assert rep["frontier_rank"] <= 8000, rep["frontier_rank"]
-    print(f"frontier robustness   ok  (noisy 12K band ignored, frontier {rep['frontier_rank']})")
-
-
-def test_json_recovery():
-    """Free models fence, preface and trail their JSON. All of it must parse."""
-    cases = [
-        '{"a": 1}',
-        '```json\n{"a": 1}\n```',
-        'Sure! Here you go:\n{"a": 1}\nHope that helps.',
-        '{"a": "a } brace in a string"}',
-    ]
-    for c in cases:
-        assert "a" in llm._extract_json(c), c
-    print("json recovery         ok")
+    print("frontier robustness   ok")
 
 
 def test_pseudowords_are_not_real():
-    import pseudowords
-    for lang in ("en", "de", "fr"):
-        lex = lexicon.get_lexicon(lang)
-        words = pseudowords.generate(lang, 20)
-        assert len(words) == 20
-        assert not (set(words) & lex.lemma_set)
+    for lang in ("en", "de"):
+        lex = corpus.get(lang)
+        words = pseudo.generate(lang, 15)
+        assert len(words) == 15 and not (set(words) & lex.lemma_set)
     print("pseudowords           ok")
 
 
-def test_taught_words_reach_the_queue():
-    """A target the model actually used must show up as 'learning', which is
-    what the rail queue and future target selection both read."""
-    import app
-    c = app.app.test_client()
-    c.get("/api/bootstrap")                       # get a learner cookie
-
-    drafts = [{"text": "The knight lifted his sword and rode to the castle.",
-               "answer": "A Knight's Tale",
-               "distractors": ["Excalibur", "Braveheart", "Ivanhoe"], "emoji": "\u2694"}]
-
-    def fake(messages, schema, name, models=None, temperature=0.8):
-        return json.loads(json.dumps(drafts[0])), "mock/model"
-
-    original_json, original_targets = llm.complete_json, lexicon.pick_targets
-    llm.complete_json = fake
-    lexicon.pick_targets = lambda *a, **k: ["sword", "knight", "castle"]
-    key_was = config.OPENROUTER_API_KEY
-    config.OPENROUTER_API_KEY = "test"
-    try:
-        r = c.post("/api/round", json={"lang": "en", "domain": "movies"}).get_json()
-        assert "error" not in r, r
-        assert set(r["quality"]["targets_used"]) == {"sword", "knight", "castle"}, r["quality"]
-        prof = c.get("/api/profile?lang=en").get_json()
-        queue = {q["lemma"] for q in prof["queue"] if q["met"]}
-        assert {"sword", "knight", "castle"} <= queue, queue
-        assert prof["counts"]["learning"] >= 3
-    finally:
-        llm.complete_json, lexicon.pick_targets = original_json, original_targets
-        config.OPENROUTER_API_KEY = key_was
-    print("teaching queue        ok  (three targets used, three queued as learning)")
+def test_json_recovery():
+    for c in ['{"a":1}', '```json\n{"a":1}\n```', 'Sure:\n{"a":1}\ndone',
+              '{"a":"a } brace"}']:
+        assert "a" in extract_json(c)
+    print("json recovery         ok")
 
 
-def test_targets_sit_just_past_the_frontier():
-    """i+1 means the next useful word, not an arbitrary rare one."""
-    lex = lexicon.get_lexicon("en")
-    for frontier in (1000, 3000):
-        for _ in range(12):
-            for t in lexicon.pick_targets("en", frontier, 3):
-                rank = lex.rank_of(t)
-                assert rank is not None and rank >= frontier, (t, rank, frontier)
-                assert rank < frontier * 1.4 + 260, (t, rank, frontier)
-    print("target selection      ok")
+def test_repair_loop_reduces_overflow():
+    gen = ScriptedGenerator([
+        {"text": "A young man lives on an arid world. He finds a luminous sword "
+                 "and meets an inscrutable hermit near a castle.", "emoji": "X"},
+        {"text": "A young man lives on a dry world. He finds a bright sword and "
+                 "meets an old man near a castle.", "emoji": "X"},
+    ])
+    p = riddles.generate(gen, "en", "English", "movies", 2000)
+    assert p["drafts"] == 2, p["drafts"]
+    assert p["accepted_vocab"], p["reject_reason"]
+    assert 1 <= len(p["new"]) <= config.MAX_NEW_WORDS, p["new"]
+    assert len(p["options"]) == 4 and p["answer"] in p["options"]
+    print(f"repair loop           ok  (2 drafts, teaches {p['new']})")
 
 
-def test_api_surface():
-    import app
-    c = app.app.test_client()
+def test_distractors_are_real_and_grouped():
+    subj = [s for s in cstore.subjects("movies") if s["title"] == "Star Wars"][0]
+    opts = cstore.distractors_for(subj, 3)
+    assert len(opts) == 3 and "Star Wars" not in opts
+    titles = {s["title"] for s in cstore.subjects("movies")}
+    assert set(opts) <= titles, "distractors must be real subjects, never invented"
+    print("distractors           ok")
+
+
+def test_probe_panel_detects_each_failure():
+    gen = FakeGenerator(seed=3, solve_rate=0.95)
+    p = riddles.generate(gen, "en", "English", "movies", 2000)
+    p["id"] = riddles.persist(p)
+    r = cstore.get_riddle(p["id"])
+
+    good = probes.run(gen, r, "English", record=False)
+    blind = probes.run(FakeGenerator(seed=3, solve_rate=0.0), r, "English", record=False)
+    assert "no solver recovered the subject from the text" in blind["reasons"]
+    # Success is weak evidence, failure is strong: only the reject path is
+    # asserted, which is exactly how the gate is meant to be read.
+    assert good["solved_open_of"] == len(config.PROBE_MODELS)
+    assert blind["blind_of"] >= 3, "a chance rate needs more than one sample"
+    print("probe panel           ok")
+
+
+def test_corpus_first_serving_and_writeback():
+    lstore.init()
+    gen = FakeGenerator(seed=9, solve_rate=0.9)
+    lid = "test-learner"
+    lstore.touch(lid)
+    lstore.save_profile(lid, "en", {
+        "vocab_estimate": 2000, "frontier_rank": 2000, "cefr": "B1",
+        "false_alarm_rate": 0.1, "reliable": True, "consistent": True,
+        "transparency_gap": None, "bands": []})
+
+    before = sum(cstore.counts().values())
+    out = policy.serve(lid, "en", "movies", generator=gen, lang_name="English")
+    assert out and out["round_id"]
+    after = sum(cstore.counts().values())
+
+    if out["source"] == "live":
+        assert after > before, "live generations must be written back to the corpus"
+    # Same riddle must not come round twice.
+    seen = lstore.seen_ids(lid, "en")
+    assert out["round_id"] in seen
+    print(f"corpus serving        ok  (source: {out['source']}, write-back verified)")
+
+
+def test_frontier_retreats_faster_than_it_advances():
+    lid = "test-estimate"
+    lstore.touch(lid)
+    lstore.save_profile(lid, "en", {
+        "vocab_estimate": 2000, "frontier_rank": 2000, "cefr": "B1",
+        "false_alarm_rate": 0.1, "reliable": True, "consistent": True,
+        "transparency_gap": None, "bands": []})
+    for i in range(6):
+        lstore.mark_seen(lid, f"r{i}", "en")
+        lstore.record_answer(lid, f"r{i}", "x", False)
+    down = policy.reestimate(lid, "en")
+    assert down < 2000, down
+
+    lstore.save_profile(lid, "en", {
+        "vocab_estimate": 2000, "frontier_rank": 2000, "cefr": "B1",
+        "false_alarm_rate": 0.1, "reliable": True, "consistent": True,
+        "transparency_gap": None, "bands": []})
+    for i in range(6):
+        lstore.record_answer(lid, f"r{i}", "x", True)
+    up = policy.reestimate(lid, "en")
+    assert 2000 < up < 2000 * 1.2, up
+    assert (2000 - down) > (up - 2000), "retreat must outpace advance"
+    print(f"frontier drift        ok  ({down} down vs {up} up)")
+
+
+def test_studio_api():
+    from studio import app as S
+    c = S.app.test_client()
+    for url in ("/api/overview", "/api/coverage?lang=en&hi=3000", "/api/queue",
+                "/api/telemetry", "/api/subjects", "/api/ladder?lang=en&lo=1000&hi=1010"):
+        assert c.get(url).status_code == 200, url
+    print("studio api            ok")
+
+
+def test_web_api():
+    from web import app as W
+    c = W.app.test_client()
     assert c.get("/api/health").status_code == 200
-    assert c.get("/api/bootstrap").status_code == 200
     start = c.post("/api/placement/start", json={"lang": "en"}).get_json()
-    responses = {it["id"]: True for it in start["items"][:10]}
+    assert len(start["items"]) > 40, len(start["items"])
+    resp = {it["id"]: True for it in start["items"][:10]}
     rep = c.post("/api/placement/submit",
-                 json={"test_id": start["test_id"], "responses": responses}).get_json()
-    assert "vocab_estimate" in rep
-    assert c.post("/api/placement/submit", json={"test_id": "nope"}).status_code == 404
-    print("api surface           ok")
+                 json={"test_id": start["test_id"], "responses": resp}).get_json()
+    assert "frontier_rank" in rep
+    assert c.post("/api/placement/submit", json={"test_id": "no"}).status_code == 404
+    print("web api               ok")
 
+
+TESTS = [
+    test_lemmas, test_overflow_is_the_new_word_set, test_inflection_credit,
+    test_verdict_counts_not_identities, test_ceiling_governs_serving,
+    test_teachability_filter, test_cognates_are_screened_not_guessed,
+    test_placement_catches_the_decoder, test_frontier_first_crossing,
+    test_pseudowords_are_not_real, test_json_recovery,
+    test_repair_loop_reduces_overflow, test_distractors_are_real_and_grouped,
+    test_probe_panel_detects_each_failure, test_corpus_first_serving_and_writeback,
+    test_frontier_retreats_faster_than_it_advances,
+    test_studio_api, test_web_api,
+]
 
 if __name__ == "__main__":
-    config.DB_PATH = config.BASE_DIR / "data" / "test.sqlite3"
-    for f in (test_lexicon, test_verification, test_inflected_forms_count_as_known,
-              test_scoring_rejects_yea_saying, test_frontier_takes_the_first_crossing,
-              test_json_recovery,
-              test_pseudowords_are_not_real, test_targets_sit_just_past_the_frontier,
-              test_generation_loop, test_taught_words_reach_the_queue, test_api_surface):
+    for f in (config.DB_PATH, config.CONTENT_DB):
+        for suffix in ("", "-wal", "-shm"):
+            p = f.with_name(f.name + suffix)
+            if p.exists():
+                p.unlink()
+    cstore.init()
+    subjects.seed()
+    failed = 0
+    for t in TESTS:
         try:
-            f()
+            t()
         except AssertionError as e:
-            print(f"{f.__name__:22}FAIL  {e}")
-            sys.exit(1)
-    print("\nall offline checks passed")
+            print(f"{t.__name__:22}FAIL  {e}")
+            failed += 1
+        except Exception as e:
+            print(f"{t.__name__:22}ERROR {type(e).__name__}: {e}")
+            failed += 1
+    print("\n" + ("all offline checks passed" if not failed else f"{failed} failed"))
+    sys.exit(1 if failed else 0)

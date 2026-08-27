@@ -18,6 +18,7 @@ import time
 import requests
 
 import config
+from providers.base import DictionaryProvider
 
 REST = "https://en.wiktionary.org/api/rest_v1/page/definition/{}"
 UA = f"CineTot/1.0 ({config.SITE_URL})"
@@ -124,3 +125,10 @@ _ANCHORS = {
 
 def _anchor(lang):
     return _ANCHORS.get(lang, "English")
+
+
+class Wiktionary(DictionaryProvider):
+    name = "wiktionary"
+
+    def lookup(self, word, lang):
+        return lookup(word, lang)

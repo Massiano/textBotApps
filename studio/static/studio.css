@@ -1,0 +1,179 @@
+/* CineTot Studio — a working tool, not a landing page. Dense, fixed 1400x900,
+   everything absolutely positioned. */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #14161b;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  font-size: 13px; color: #d7d3c8;
+}
+
+#canvas {
+  position: relative; width: 1400px; height: 900px; margin: 16px auto;
+  background: #1b1e25; overflow: hidden;
+  box-shadow: 0 0 0 1px #000, 0 20px 50px rgba(0,0,0,0.6);
+}
+
+/* ------------------------------------------------------------------- top */
+#top { position: absolute; left: 0; top: 0; width: 1400px; height: 48px; background: #10131a; }
+#brand { position: absolute; left: 20px; top: 16px; font-size: 15px; font-weight: 800; letter-spacing: 2.5px; color: #f0ece1; }
+#brand span { color: #e8a33d; }
+.tl { position: absolute; top: 6px; font-size: 9px; letter-spacing: 1.3px; text-transform: uppercase; color: #5d6473; }
+#l-lang { left: 220px; } #l-domain { left: 400px; }
+#lang, #domain {
+  position: absolute; top: 18px; height: 22px; background: #1e222b; color: #d7d3c8;
+  border: 1px solid #2c313d; font-size: 12px; padding: 0 4px;
+}
+#lang { left: 220px; width: 168px; } #domain { left: 400px; width: 130px; }
+#gen-badge { position: absolute; left: 552px; top: 17px; font-size: 10px; padding: 3px 8px; background: #26202f; color: #b48ee0; letter-spacing: 0.6px; }
+
+#worker-box { position: absolute; right: 16px; top: 12px; height: 24px; }
+#worker-dot { position: relative; float: left; width: 8px; height: 8px; margin: 8px 8px 0 0; background: #4a4f5c; border-radius: 50%; }
+#worker-dot.on { background: #4fb3a5; }
+#worker-text { position: relative; float: left; line-height: 24px; font-size: 11px; color: #8b92a3; margin-right: 10px; max-width: 420px; overflow: hidden; white-space: nowrap; }
+#worker-toggle { position: relative; float: left; height: 24px; padding: 0 12px; background: #2a2f3a; border: none; color: #d7d3c8; font-size: 11px; cursor: pointer; font-family: inherit; }
+#worker-toggle:hover { background: #e8a33d; color: #10131a; }
+
+/* ------------------------------------------------------------------ tabs */
+#tabs { position: absolute; left: 0; top: 48px; width: 1400px; height: 34px; background: #171a21; }
+.tab { position: relative; float: left; height: 34px; padding: 0 18px; background: transparent; border: none; border-right: 1px solid #21252e; color: #8b92a3; font-size: 12px; cursor: pointer; font-family: inherit; }
+.tab:hover { color: #f0ece1; }
+.tab.on { background: #1b1e25; color: #e8a33d; font-weight: 600; box-shadow: inset 0 2px 0 #e8a33d; }
+.badge { display: inline-block; margin-left: 7px; padding: 1px 6px; background: #e8a33d; color: #10131a; font-size: 10px; font-weight: 700; }
+.badge:empty { display: none; }
+
+#stats { position: absolute; left: 0; top: 82px; width: 1400px; height: 30px; background: #16191f; border-bottom: 1px solid #232830; }
+.stat { position: relative; float: left; line-height: 30px; padding: 0 16px; font-size: 11px; color: #6b7280; border-right: 1px solid #232830; }
+.stat b { color: #d7d3c8; font-weight: 600; }
+.stat.accepted b { color: #4fb3a5; }
+.stat.rejected b { color: #c85a4a; }
+.stat.candidate b { color: #e8a33d; }
+
+/* ----------------------------------------------------------------- views */
+.view { position: absolute; left: 0; top: 112px; width: 1400px; height: 788px; display: none; overflow: hidden; }
+.view.on { display: block; }
+.vh { position: absolute; left: 24px; top: 20px; font-size: 19px; font-weight: 300; color: #f0ece1; }
+.vs { position: absolute; left: 24px; top: 46px; width: 900px; font-size: 11px; line-height: 1.6; color: #6b7280; }
+.sh { font-size: 9px; letter-spacing: 1.4px; text-transform: uppercase; color: #5d6473; }
+
+/* -------------------------------------------------------------- coverage */
+#cov-rows { position: absolute; left: 24px; top: 92px; width: 820px; }
+.covrow { position: relative; width: 820px; height: 32px; border-bottom: 1px solid #21252e; }
+.covrow .cb { position: absolute; left: 0; top: 9px; width: 40px; font-size: 11px; color: #8b92a3; }
+.covrow .ctrack { position: absolute; left: 48px; top: 12px; width: 480px; height: 9px; background: #232830; }
+.covrow .cfill { position: absolute; left: 0; top: 0; height: 9px; background: #2f6b62; }
+.covrow .cwell { position: absolute; left: 0; top: 0; height: 9px; background: #4fb3a5; }
+.covrow .cn { position: absolute; left: 544px; top: 9px; font-size: 11px; color: #6b7280; }
+.covrow .cn b { color: #d7d3c8; }
+.covrow:hover { background: #1f232b; cursor: pointer; }
+.covrow.sel { background: #232a33; }
+
+#cov-thin { position: absolute; left: 24px; top: 420px; width: 820px; height: 180px; }
+#cov-thin-words { position: absolute; left: 0; top: 20px; width: 820px; height: 156px; overflow: hidden; }
+.tw { position: relative; float: left; margin: 0 5px 5px 0; padding: 3px 7px; background: #232830; color: #8b92a3; font-size: 11px; }
+
+#gen-panel { position: absolute; left: 880px; top: 92px; width: 496px; height: 300px; background: #171a21; border: 1px solid #232830; padding: 16px; }
+#gen-levels { position: absolute; left: 16px; top: 40px; width: 464px; }
+.lvl { position: relative; float: left; margin: 0 6px 6px 0; padding: 5px 10px; background: #1e222b; border: 1px solid #2c313d; color: #8b92a3; font-size: 11px; cursor: pointer; }
+.lvl.on { background: #e8a33d; border-color: #e8a33d; color: #10131a; font-weight: 600; }
+.gl { position: absolute; font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase; color: #5d6473; }
+#gen-panel .gl { left: 16px; top: 152px; }
+#gen-want { position: absolute; left: 16px; top: 170px; width: 80px; height: 30px; background: #1e222b; border: 1px solid #2c313d; color: #d7d3c8; padding: 0 8px; font-family: inherit; }
+#gen-go { position: absolute; left: 108px; top: 170px; width: 150px; height: 30px; background: #e8a33d; border: none; color: #10131a; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+#gen-go:hover { background: #f0b459; }
+#gen-note { position: absolute; left: 16px; top: 212px; width: 464px; font-size: 11px; color: #6b7280; line-height: 1.5; }
+
+#joblist { position: absolute; left: 880px; top: 412px; width: 496px; height: 350px; overflow-y: auto; }
+.job { position: relative; width: 480px; height: 40px; border-bottom: 1px solid #21252e; }
+.job .jt { position: absolute; left: 0; top: 5px; font-size: 11px; color: #d7d3c8; }
+.job .jp { position: absolute; left: 0; top: 22px; font-size: 10px; color: #6b7280; }
+.job .jbar { position: absolute; left: 300px; top: 14px; width: 120px; height: 6px; background: #232830; }
+.job .jbf { position: absolute; left: 0; top: 0; height: 6px; background: #4fb3a5; }
+.job .js { position: absolute; right: 0; top: 12px; font-size: 10px; padding: 2px 6px; background: #232830; color: #8b92a3; }
+.job .js.running { background: #2f6b62; color: #cdeee8; }
+
+/* ---------------------------------------------------------------- review */
+#rev-empty { position: absolute; left: 24px; top: 100px; font-size: 13px; color: #6b7280; }
+#rev-card { position: absolute; left: 24px; top: 92px; width: 900px; display: none; }
+#rev-meta { position: relative; height: 26px; font-size: 11px; color: #6b7280; }
+#rev-meta b { color: #d7d3c8; }
+#rev-text {
+  position: relative; margin-top: 8px; padding: 22px 28px; background: #10131a;
+  font-family: Georgia, "Times New Roman", serif; font-size: 17px; line-height: 1.85;
+  color: #ddd9cf; min-height: 150px;
+}
+#rev-text .nw { color: #e8a33d; font-weight: bold; border-bottom: 2px solid #e8a33d; }
+#rev-text .nm { color: #9aa7c2; font-style: italic; }
+#rev-options { position: relative; margin-top: 12px; height: 34px; }
+.ro { position: relative; float: left; margin-right: 8px; padding: 7px 14px; background: #1e222b; border: 1px solid #2c313d; font-size: 12px; color: #8b92a3; }
+.ro.ans { border-color: #4fb3a5; color: #4fb3a5; font-weight: 600; }
+#rev-machine { position: relative; margin-top: 14px; padding: 12px 14px; background: #171a21; border-left: 3px solid #2c313d; font-size: 11px; line-height: 1.8; color: #8b92a3; }
+#rev-machine b { color: #d7d3c8; }
+#rev-machine .good { color: #4fb3a5; }
+#rev-machine .bad { color: #c85a4a; }
+#rev-actions { position: relative; margin-top: 16px; height: 36px; }
+#rev-actions button { position: relative; float: left; height: 36px; margin-right: 8px; padding: 0 20px; border: none; font-size: 12px; cursor: pointer; font-family: inherit; }
+#rev-actions button b { margin-left: 8px; opacity: 0.55; font-weight: 700; }
+#rev-accept { background: #2f6b62; color: #e6f5f2; }
+#rev-accept:hover { background: #3d8a7e; }
+#rev-reject { background: #7a3329; color: #f7e0dc; }
+#rev-reject:hover { background: #9b4136; }
+#rev-skip, #rev-probe { background: #262b34; color: #8b92a3; }
+#rev-note { position: relative; margin-top: 12px; width: 900px; height: 32px; background: #1e222b; border: 1px solid #2c313d; color: #d7d3c8; padding: 0 10px; font-family: inherit; font-size: 12px; }
+#rev-progress { position: absolute; left: 950px; top: 92px; width: 420px; font-size: 11px; color: #6b7280; line-height: 1.8; }
+
+/* ------------------------------------------------------------- telemetry */
+#tel-models { position: absolute; left: 24px; top: 92px; width: 900px; }
+.tm { position: relative; width: 900px; height: 44px; border-bottom: 1px solid #21252e; }
+.tm .tn { position: absolute; left: 0; top: 6px; font-size: 12px; color: #d7d3c8; }
+.tm .td { position: absolute; left: 0; top: 25px; font-size: 10px; color: #6b7280; }
+.tm .tbar { position: absolute; left: 420px; top: 18px; width: 260px; height: 8px; background: #232830; }
+.tm .tbf { position: absolute; left: 0; top: 0; height: 8px; background: #4fb3a5; }
+.tm .ty { position: absolute; left: 700px; top: 14px; font-size: 13px; color: #d7d3c8; }
+#sh-probe { position: absolute; left: 24px; top: 330px; }
+#tel-probes { position: absolute; left: 24px; top: 352px; width: 900px; }
+#sh-fail { position: absolute; left: 24px; top: 440px; }
+#tel-fails { position: absolute; left: 24px; top: 462px; width: 900px; height: 150px; overflow-y: auto; }
+#sh-cells { position: absolute; left: 960px; top: 70px; }
+#tel-cells { position: absolute; left: 960px; top: 92px; width: 416px; height: 600px; overflow-y: auto; }
+.trow { position: relative; height: 26px; font-size: 11px; color: #8b92a3; border-bottom: 1px solid #1f232b; line-height: 26px; }
+.trow b { color: #d7d3c8; }
+.trow .r { position: absolute; right: 0; }
+.pk { position: relative; float: left; width: 200px; height: 56px; margin-right: 12px; background: #171a21; border: 1px solid #232830; padding: 10px; }
+.pk .pkn { font-size: 10px; letter-spacing: 1.2px; text-transform: uppercase; color: #5d6473; }
+.pk .pkv { font-size: 20px; font-weight: 300; color: #d7d3c8; margin-top: 4px; }
+
+/* -------------------------------------------------------------- subjects */
+#subj-head { position: absolute; left: 24px; top: 92px; width: 1340px; height: 26px; font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase; color: #5d6473; border-bottom: 1px solid #232830; }
+#subj-head span, .subj span { position: absolute; top: 6px; }
+.sc1 { left: 0; } .sc2 { left: 320px; } .sc3 { left: 420px; }
+.sc4 { left: 530px; } .sc5 { left: 640px; } .sc6 { left: 780px; } .sc7 { left: 870px; }
+#subj-rows { position: absolute; left: 24px; top: 124px; width: 1340px; height: 640px; overflow-y: auto; }
+.subj { position: relative; width: 1320px; height: 30px; border-bottom: 1px solid #1f232b; font-size: 12px; }
+.subj:hover { background: #1f232b; }
+.subj .st { color: #d7d3c8; }
+.subj .yr { color: #5d6473; margin-left: 6px; font-size: 10px; }
+.stars { cursor: pointer; letter-spacing: 1px; }
+.stars i { font-style: normal; color: #3a4049; }
+.stars i.f { color: #e8a33d; }
+.stars.measured i.f { color: #4fb3a5; }
+.subj .gr { color: #8b92a3; font-size: 11px; }
+.subj .cnt { color: #6b7280; font-size: 11px; }
+.subj .stt { font-size: 10px; padding: 2px 7px; background: #232830; color: #8b92a3; cursor: pointer; }
+.subj .stt.off { background: #3a2420; color: #c85a4a; }
+
+/* ---------------------------------------------------------------- ladder */
+#lad-controls { position: absolute; left: 24px; top: 92px; height: 30px; }
+#lad-controls .gl { position: relative; float: left; line-height: 30px; margin-right: 8px; }
+#lad-lo { position: relative; float: left; width: 90px; height: 30px; background: #1e222b; border: 1px solid #2c313d; color: #d7d3c8; padding: 0 8px; font-family: inherit; margin-right: 8px; }
+#lad-go { position: relative; float: left; height: 30px; padding: 0 16px; background: #2a2f3a; border: none; color: #d7d3c8; cursor: pointer; font-family: inherit; font-size: 12px; }
+#lad-rows { position: absolute; left: 24px; top: 140px; width: 1340px; height: 620px; overflow-y: auto; }
+.lad { position: relative; float: left; width: 320px; height: 30px; margin: 0 12px 6px 0; border-bottom: 1px solid #1f232b; font-size: 12px; }
+.lad .lr { position: absolute; left: 0; top: 7px; font-size: 10px; color: #4a5160; width: 44px; }
+.lad .ll { position: absolute; left: 48px; top: 6px; color: #d7d3c8; }
+.lad .lw { position: absolute; left: 160px; top: 8px; font-size: 10px; color: #6b7280; }
+.lad .lb { position: absolute; right: 0; top: 4px; width: 22px; height: 22px; background: #232830; border: none; color: #6b7280; cursor: pointer; font-size: 12px; }
+.lad.no .ll { color: #5d6473; text-decoration: line-through; }
+.lad.no .lb { color: #c85a4a; }
+.lad.yes .lb { color: #4fb3a5; }
