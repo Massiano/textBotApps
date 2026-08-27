@@ -231,9 +231,25 @@ def test_probe_panel_detects_each_failure():
     assert "no solver recovered the subject from the text" in blind["reasons"]
     # Success is weak evidence, failure is strong: only the reject path is
     # asserted, which is exactly how the gate is meant to be read.
-    assert good["solved_open_of"] == len(config.PROBE_MODELS)
+    assert good["solved_open_of"] >= 2, good["solved_open_of"]
     assert blind["blind_of"] >= 3, "a chance rate needs more than one sample"
     print("probe panel           ok")
+
+
+def test_solver_panel_survives_stale_model_ids():
+    """Configured free-model IDs go stale. If the panel passed dead IDs
+    through, every probe would fail and every riddle would be rejected for
+    what look like content problems."""
+    gen = FakeGenerator(seed=1)
+    real = config.PROBE_MODELS
+    try:
+        config.PROBE_MODELS = ["retired/model-a:free", "retired/model-b:free"]
+        panel = probes.solver_panel(gen)
+        assert panel and all(m in gen.models() for m in panel), panel
+    finally:
+        config.PROBE_MODELS = real
+    assert probes.solver_panel(gen, exclude="fake/alpha") == ["fake/beta", "fake/gamma"]
+    print("solver resolution     ok")
 
 
 def test_corpus_first_serving_and_writeback():
@@ -293,6 +309,23 @@ def test_studio_api():
     print("studio api            ok")
 
 
+def test_bootstrap_matches_what_the_ui_reads():
+    """The UI reading a field the API does not send fails silently: the key
+    warning fired on every load because it checked a renamed field."""
+    import re
+    from web import app as W
+    payload = W.app.test_client().get("/api/bootstrap").get_json()
+    js = (config.BASE_DIR / "web" / "static" / "app.js").read_text(encoding="utf-8")
+    # Only the function that consumes /api/bootstrap; other handlers read
+    # other payloads and would produce false positives.
+    start = js.index("async function boot(")
+    body = js[start:js.index("\nasync function", start + 10)]
+    read = set(re.findall(r"\bdata\.([a-zA-Z_]+)\b", body))
+    missing = read - set(payload)
+    assert not missing, f"boot() reads {sorted(missing)}, bootstrap does not send them"
+    print(f"bootstrap contract    ok  ({len(read)} fields checked)")
+
+
 def test_web_api():
     from web import app as W
     c = W.app.test_client()
@@ -316,9 +349,10 @@ TESTS = [
     test_pseudowords_are_not_real, test_json_recovery,
     test_repair_loop_reduces_overflow, test_empty_subject_table_says_so,
     test_fake_respects_the_requested_level, test_distractors_are_real_and_grouped,
-    test_probe_panel_detects_each_failure, test_corpus_first_serving_and_writeback,
+    test_probe_panel_detects_each_failure, test_solver_panel_survives_stale_model_ids,
+    test_corpus_first_serving_and_writeback,
     test_frontier_retreats_faster_than_it_advances,
-    test_studio_api, test_web_api,
+    test_studio_api, test_bootstrap_matches_what_the_ui_reads, test_web_api,
 ]
 
 if __name__ == "__main__":

@@ -58,9 +58,12 @@ async function boot() {
   el("lang-select").value = state.lang;
   el("domain-select").value = state.domain;
 
-  if (!data.configured) {
+  // Field name must match the bootstrap payload. It used to be `configured`,
+  // and after the rename the check read `undefined` and warned unconditionally.
+  if (!data.live) {
     el("play-status").textContent =
-      "The server has no OPENROUTER_API_KEY, so riddles and explanations are switched off. Measuring vocabulary still works.";
+      "No OPENROUTER_API_KEY on the server, so new riddles cannot be written. "
+      + "Riddles already in the corpus still play, and the vocabulary check works.";
   }
 
   await refreshProfile();

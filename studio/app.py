@@ -36,6 +36,15 @@ def body():
     return request.get_json(silent=True) or {}
 
 
+def _solvers():
+    """Which models the probe panel will actually use, for display."""
+    from content import probes
+    try:
+        return probes.solver_panel(GEN)
+    except Exception:
+        return []
+
+
 @app.route("/")
 def index():
     return send_from_directory(STATIC, "index.html")
@@ -63,6 +72,7 @@ def overview():
         "jobs": store.jobs(12),
         "generator": GEN.name,
         "live_key": bool(config.OPENROUTER_API_KEY),
+        "solvers": _solvers(),
         "lang_options": [{"code": k, "label": v} for k, v in config.LANGUAGES.items()],
     })
 

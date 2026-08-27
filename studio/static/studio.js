@@ -1,5 +1,10 @@
 /* CineTot Studio front end. No framework. */
 
+// The studio runs standalone at / and mounted at /studio/. Resolving API
+// calls against the current directory rather than the domain root makes both
+// work without a build step or a hardcoded prefix.
+const ROOT = location.pathname.replace(/\/[^/]*$/, "/");
+
 const el = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
   (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -12,7 +17,7 @@ const S = {
 };
 
 async function api(path, opts) {
-  const r = await fetch(path, opts);
+  const r = await fetch(ROOT + path.replace(/^\//, ""), opts);
   const d = await r.json().catch(() => ({ error: "bad response" }));
   if (!r.ok) throw new Error(d.error || `failed (${r.status})`);
   return d;
@@ -61,7 +66,9 @@ async function loadOverview() {
       };
     });
     el("gen-badge").textContent = d.live_key
-      ? `${d.generator} · live` : `${d.generator} · offline, no API key`;
+      ? `${d.generator} · live · ${(d.solvers || []).length} solvers`
+      : `${d.generator} · offline, no API key`;
+    el("gen-badge").title = (d.solvers || []).join("\n") || "no solver models resolved";
   }
   renderStats(d.counts);
   renderWorker(d.worker);

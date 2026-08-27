@@ -231,6 +231,33 @@ python cli.py export corpus.json
 
 ---
 
+## Deploying
+
+`wsgi.py` serves both apps from one process, which is what single-web-service
+hosts like Railway need:
+
+```
+/          the learner app
+/studio/   the dashboard
+```
+
+The `Procfile` points at it. Set these:
+
+| Variable | Why |
+|---|---|
+| `OPENROUTER_API_KEY` | without it the generator falls back to `fake` |
+| `STUDIO_TOKEN` | **set this.** The studio creates and deletes content; unset, it is world-writable to anyone who guesses the path. Visit `/studio/?token=…` once and it sets a cookie. |
+| `CINETOT_CONTENT_DB` | point at a mounted volume, e.g. `/app/data/content.sqlite3` |
+| `CINETOT_DB` | likewise for learner data |
+
+**Attach a volume.** Container filesystems reset on deploy, so without one every
+riddle you generate and review is lost on the next push. Mount it at `/app/data`
+and point both database variables inside it. `data/lex/*.json` is a rebuildable
+cache and does not need to persist.
+
+Confirm a deployment with `/api/health`: `"generator":"openrouter"` means the key
+was picked up, and `"corpus"` shows how many riddles exist by status.
+
 ## Layout
 
 ```

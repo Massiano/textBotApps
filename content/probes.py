@@ -129,11 +129,31 @@ def cloze(gen, riddle, model, lang_name):
 
 # ------------------------------------------------------------------- panel
 
+def solver_panel(gen, exclude=None):
+    """Pick solvers that actually exist right now.
+
+    Free model IDs churn, so the configured panel is treated as a preference
+    rather than a fact. If none of them are live the panel falls back to
+    whatever the catalogue offers — otherwise every probe fails and every
+    riddle gets rejected for what look like content problems.
+    """
+    try:
+        catalogue = gen.models()
+    except Exception:
+        catalogue = []
+    available = [m for m in config.PROBE_MODELS if m in catalogue]
+    if not available:
+        available = [m for m in catalogue if m not in (config.PROBE_MODELS or [])]
+        available = available[:len(config.PROBE_MODELS) or 3]
+    if not available:
+        available = list(config.PROBE_MODELS)
+    # Never let the generating model judge its own output.
+    return [m for m in available if m != exclude] or available
+
+
 def run(gen, riddle, lang_name, models=None, record=True):
     """Run the panel over one riddle and return a verdict."""
-    models = models or config.PROBE_MODELS
-    # Never let the generating model judge its own output.
-    models = [m for m in models if m != riddle.get("model")] or list(models)
+    models = models or solver_panel(gen, exclude=riddle.get("model"))
 
     result = {"open": [], "forced": [], "blind": [], "cloze": [], "cues": []}
 
