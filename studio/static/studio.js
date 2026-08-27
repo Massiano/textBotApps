@@ -73,15 +73,37 @@ async function loadOverview() {
   renderStats(d.counts);
   renderWorker(d.worker);
   renderJobs(d.jobs);
+  renderLog(d.worker.log || []);
+}
+
+function renderLog(log) {
+  const box = el("worker-log-rows");
+  if (!box) return;
+  box.innerHTML = log.length ? log.map((e) => {
+    const m = e.msg || "";
+    const cls = /rejected|failed|error/i.test(m) ? "rej"
+              : /probe ok|drafts/i.test(m) ? "acc" : "";
+    return `<div class="wl ${cls}"><span class="wt">${esc((e.at || "").slice(11, 19))}</span>`
+      + `${esc(m)}</div>`;
+  }).join("")
+    : `<div class="wl">Nothing yet. Queue work, or try one to see the pipeline run.</div>`;
 }
 
 function renderWorker(w) {
   el("worker-dot").classList.toggle("on", w.running);
   const cur = w.current;
-  el("worker-text").textContent = w.running
-    ? (cur ? `${cur.kind} ${cur.lang}/${cur.domain}@${cur.level} — ${cur.done}/${cur.want}`
-           : "waiting for work")
-    : (w.log[0] ? w.log[0].msg : "idle");
+  const cooling = Object.keys(w.cooldowns || {}).length;
+  let text;
+  if (w.running && cur) {
+    text = `${cur.kind} ${cur.lang}/${cur.domain}@${cur.level} — ${cur.done}/${cur.want}`;
+  } else if (w.running) {
+    text = "running · waiting for work";
+  } else {
+    text = w.log && w.log[0] ? w.log[0].msg : "idle";
+  }
+  if (cooling) text += ` · ${cooling} model(s) rate-limited`;
+  if (w.calls) text += ` · ${w.calls} api calls`;
+  el("worker-text").textContent = text;
   el("worker-toggle").textContent = w.running ? "stop" : "start";
 }
 
@@ -135,9 +157,41 @@ async function queueWork() {
   const want = Number(el("gen-want").value) || 5;
   const d = await post("/api/generate", { lang: S.lang, domain: S.domain, levels, want });
   el("gen-note").textContent =
-    `Queued ${d.queued.length} job(s), ${want} riddles each. Each accepted riddle is `
-    + `automatically sent to the probe panel before it reaches review.`;
+    `Queued ${d.queued.length} job × ${want}. With a real model each riddle takes `
+    + `roughly 20-60 seconds including retries and probes, so the first result is `
+    + `about a minute away. Watch the activity log below.`;
   loadOverview();
+}
+
+async function tryOne() {
+  const level = [...S.picked][0] || 2000;
+  const btn = el("gen-one");
+  btn.disabled = true; btn.textContent = "working…";
+  el("gen-result").innerHTML = `<span style="color:#6b7280">Generating at level ${level}. `
+    + `A real model takes 20-60 seconds.</span>`;
+  try {
+    const d = await post("/api/generate/one", { lang: S.lang, domain: S.domain, level });
+    if (d.error) {
+      el("gen-result").innerHTML = `<span class="bad2">Failed in ${esc(d.stage)}: `
+        + `${esc(d.error)}</span>`;
+    } else {
+      const p = d.probe;
+      el("gen-result").innerHTML =
+        `<span class="${d.ok ? "ok2" : "bad2"}">${d.ok ? "Accepted" : "Rejected"}</span>`
+        + ` · ${esc(d.answer)} · ${d.drafts} draft(s) · ${d.seconds}s · ${esc(d.model || "?")}`
+        + `<span class="rt">${esc(d.text)}</span>`
+        + `teaches <b>${d.new.map(esc).join(", ") || "nothing"}</b> · ceiling ${d.ceiling_rank}`
+        + (p ? ` · open recall ${p.solved_open}/${p.solved_open_of}`
+             + ` · options-only ${p.blind_correct}/${p.blind_of}`
+             + ` · cloze ${p.cloze_correct}/${p.cloze_of}` : "")
+        + (d.reason ? `<br><span class="bad2">${esc(d.reason)}</span>` : "");
+    }
+  } catch (e) {
+    el("gen-result").innerHTML = `<span class="bad2">${esc(e.message)}</span>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "Try one now";
+    loadOverview();
+  }
 }
 
 /* --------------------------------------------------------------- review */
@@ -408,6 +462,7 @@ function init() {
   el("lang").onchange = () => { S.lang = el("lang").value; S.band = null; showView(S.view); };
   el("domain").onchange = () => { S.domain = el("domain").value; S.band = null; showView(S.view); };
   el("gen-go").onclick = () => queueWork().catch((e) => { el("gen-note").textContent = e.message; });
+  el("gen-one").onclick = tryOne;
   el("worker-toggle").onclick = async () => {
     const running = el("worker-toggle").textContent === "stop";
     renderWorker(await post("/api/worker", { action: running ? "stop" : "start" }));

@@ -146,6 +146,56 @@ def generate():
     return jsonify({"queued": ids, "worker": WORKER.state()})
 
 
+@app.route("/api/generate/one", methods=["POST"])
+def generate_one():
+    """Generate a single riddle synchronously and return what happened.
+
+    A background job that takes forty seconds and reports nothing is
+    indistinguishable from a broken button. This runs in the request so the
+    first thing a user does gives an immediate, legible answer — including the
+    rejection reason when it fails.
+    """
+    import time
+    b = body()
+    lang = b.get("lang", "en")
+    domain = b.get("domain", "movies")
+    level = int(b.get("level", 2000))
+    started = time.time()
+    try:
+        payload = riddles.generate(GEN, lang, config.ENGLISH_NAME.get(lang, "English"),
+                                   domain, level)
+    except Exception as e:
+        return jsonify({"ok": False, "stage": "generate", "error": str(e),
+                        "seconds": round(time.time() - started, 1)}), 200
+
+    rid = riddles.persist(payload, origin="manual")
+    out = {"ok": payload["accepted_vocab"], "id": rid, "stage": "vocabulary",
+           "answer": payload["answer"], "text": payload["text"],
+           "new": payload["new"], "ceiling_rank": payload["ceiling_rank"],
+           "drafts": payload["drafts"], "model": payload["model"],
+           "reason": payload.get("reject_reason"),
+           "seconds": round(time.time() - started, 1)}
+    if not payload["accepted_vocab"]:
+        return jsonify(out)
+
+    if b.get("probe", True):
+        from content import probes
+        r = store.get_riddle(rid)
+        try:
+            verdict = probes.run(GEN, r, config.ENGLISH_NAME.get(lang, "English"))
+            store.set_probe_result(rid, verdict)
+            out["stage"] = "probe"
+            out["probe"] = verdict
+            out["ok"] = verdict["pass"]
+            if not verdict["pass"]:
+                store.set_status(rid, "rejected", "; ".join(verdict["reasons"]))
+                out["reason"] = "; ".join(verdict["reasons"])
+        except Exception as e:
+            out["probe_error"] = str(e)
+    out["seconds"] = round(time.time() - started, 1)
+    return jsonify(out)
+
+
 @app.route("/api/worker", methods=["POST"])
 def worker():
     action = body().get("action")

@@ -80,11 +80,24 @@ body {
 .gl { position: absolute; font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase; color: #5d6473; }
 #gen-panel .gl { left: 16px; top: 152px; }
 #gen-want { position: absolute; left: 16px; top: 170px; width: 80px; height: 30px; background: #1e222b; border: 1px solid #2c313d; color: #d7d3c8; padding: 0 8px; font-family: inherit; }
-#gen-go { position: absolute; left: 108px; top: 170px; width: 150px; height: 30px; background: #e8a33d; border: none; color: #10131a; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+#gen-go { position: absolute; left: 108px; top: 170px; width: 140px; height: 30px; background: #e8a33d; border: none; color: #10131a; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+#gen-one { position: absolute; left: 258px; top: 170px; width: 120px; height: 30px; background: #2a2f3a; border: 1px solid #3a4049; color: #d7d3c8; font-size: 12px; cursor: pointer; font-family: inherit; }
+#gen-one:hover { border-color: #e8a33d; color: #e8a33d; }
+#gen-one:disabled { color: #4a5160; cursor: default; }
 #gen-go:hover { background: #f0b459; }
 #gen-note { position: absolute; left: 16px; top: 212px; width: 464px; font-size: 11px; color: #6b7280; line-height: 1.5; }
 
-#joblist { position: absolute; left: 880px; top: 412px; width: 496px; height: 350px; overflow-y: auto; }
+#gen-result { position: absolute; left: 880px; top: 400px; width: 496px; max-height: 190px; overflow-y: auto; font-size: 11px; line-height: 1.6; color: #8b92a3; }
+#gen-result .rt { display: block; margin: 8px 0; padding: 10px; background: #10131a; font-family: Georgia, serif; font-size: 13px; line-height: 1.7; color: #ddd9cf; }
+#gen-result .ok2 { color: #4fb3a5; } #gen-result .bad2 { color: #c85a4a; }
+
+#worker-log { position: absolute; left: 24px; top: 610px; width: 820px; height: 150px; }
+#worker-log-rows { position: absolute; left: 0; top: 20px; width: 820px; height: 128px; overflow-y: auto; }
+.wl { position: relative; height: 20px; line-height: 20px; font-size: 11px; color: #8b92a3; border-bottom: 1px solid #1f232b; white-space: nowrap; overflow: hidden; }
+.wl .wt { color: #4a5160; margin-right: 10px; }
+.wl.rej { color: #c85a4a; } .wl.acc { color: #4fb3a5; }
+
+#joblist { position: absolute; left: 880px; top: 600px; width: 496px; height: 165px; overflow-y: auto; }
 .job { position: relative; width: 480px; height: 40px; border-bottom: 1px solid #21252e; }
 .job .jt { position: absolute; left: 0; top: 5px; font-size: 11px; color: #d7d3c8; }
 .job .jp { position: absolute; left: 0; top: 22px; font-size: 10px; color: #6b7280; }

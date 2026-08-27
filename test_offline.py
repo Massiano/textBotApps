@@ -236,6 +236,22 @@ def test_probe_panel_detects_each_failure():
     print("probe panel           ok")
 
 
+def test_answer_matching_is_not_fooled_by_substrings():
+    """Flattening titles let a wrong answer score as correct: "E.T." becomes
+    "et", which occurs inside "somethingelse". Caught as an intermittent test
+    failure; it would have silently inflated every probe score."""
+    same = probes._same
+    assert not same("Something Else", "E.T.")
+    assert not same("Something Else", "Up")
+    assert not same("Something Else", "Home Alone")
+    assert same("E.T.", "E.T.")
+    assert same("The Lion King", "Lion King")      # articles are noise
+    assert same("Rocky", "Rocky Balboa")           # genuine shorter form
+    assert same("Star Wars", "Star Wars (1977)")
+    assert not same("Jaws", "Star Wars")
+    print("answer matching       ok")
+
+
 def test_solver_panel_survives_stale_model_ids():
     """Configured free-model IDs go stale. If the panel passed dead IDs
     through, every probe would fail and every riddle would be rejected for
@@ -306,7 +322,43 @@ def test_studio_api():
     for url in ("/api/overview", "/api/coverage?lang=en&hi=3000", "/api/queue",
                 "/api/telemetry", "/api/subjects", "/api/ladder?lang=en&lo=1000&hi=1010"):
         assert c.get(url).status_code == 200, url
+    ov = c.get("/api/overview").get_json()
+    assert "log" in ov["worker"], "the UI needs the activity log to show progress"
     print("studio api            ok")
+
+
+def test_generate_one_reports_synchronously():
+    """A background job that takes a minute and reports nothing is
+    indistinguishable from a broken button."""
+    from studio import app as S
+    c = S.app.test_client()
+    r = c.post("/api/generate/one",
+               json={"lang": "en", "domain": "movies", "level": 2000}).get_json()
+    assert "ok" in r and "stage" in r and "seconds" in r, r
+    if r.get("error"):
+        raise AssertionError(r["error"])
+    assert r["text"] and r["answer"], r
+    # Either it was accepted, or it says why not. Never silent.
+    assert r["ok"] or r["reason"], r
+    print(f"generate one          ok  ({'accepted' if r['ok'] else 'rejected, reason given'})")
+
+
+def test_studio_mounts_under_a_prefix():
+    """Single-service hosts need both apps in one process; relative asset and
+    API paths are what make the mount work."""
+    import wsgi
+    from werkzeug.test import Client
+    c = Client(wsgi.app)
+    assert c.get("/studio").status_code == 308
+    assert c.get("/studio/").status_code == 200
+    assert c.get("/studio/api/overview").status_code == 200
+    assert c.get("/api/health").status_code == 200
+    js = (config.BASE_DIR / "studio" / "static" / "studio.js").read_text(encoding="utf-8")
+    assert "const ROOT" in js, "studio must resolve API calls relative to its mount"
+    html = (config.BASE_DIR / "studio" / "static" / "index.html").read_text(encoding="utf-8")
+    assert 'href="studio.css"' in html and 'src="studio.js"' in html, \
+        "absolute asset paths break under a prefix mount"
+    print("prefix mount          ok")
 
 
 def test_bootstrap_matches_what_the_ui_reads():
@@ -349,10 +401,13 @@ TESTS = [
     test_pseudowords_are_not_real, test_json_recovery,
     test_repair_loop_reduces_overflow, test_empty_subject_table_says_so,
     test_fake_respects_the_requested_level, test_distractors_are_real_and_grouped,
-    test_probe_panel_detects_each_failure, test_solver_panel_survives_stale_model_ids,
+    test_probe_panel_detects_each_failure, test_answer_matching_is_not_fooled_by_substrings,
+    test_solver_panel_survives_stale_model_ids,
     test_corpus_first_serving_and_writeback,
     test_frontier_retreats_faster_than_it_advances,
-    test_studio_api, test_bootstrap_matches_what_the_ui_reads, test_web_api,
+    test_studio_api, test_generate_one_reports_synchronously,
+    test_studio_mounts_under_a_prefix,
+    test_bootstrap_matches_what_the_ui_reads, test_web_api,
 ]
 
 if __name__ == "__main__":

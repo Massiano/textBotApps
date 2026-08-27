@@ -45,17 +45,32 @@ CLOZE_SCHEMA = {
 }
 
 
-def _norm(s):
-    s = (s or "").lower().strip()
-    s = re.sub(r"^(the|a|an|le|la|les|el|los|der|die|das|il|lo)\s+", "", s)
-    return re.sub(r"[^a-z0-9]+", "", s)
+ARTICLES = {"the", "a", "an", "le", "la", "les", "el", "los", "las",
+            "der", "die", "das", "il", "lo", "un", "une", "een"}
+
+
+def _tokens(s):
+    """Title reduced to comparable words, articles dropped.
+
+    Comparing flattened strings let a wrong answer be scored correct: "E.T."
+    flattens to "et", which occurs inside "somethingelse". Keeping word
+    boundaries makes containment mean what it looks like it means.
+    """
+    words = re.findall(r"[a-z0-9]+", (s or "").lower())
+    kept = [w for w in words if w not in ARTICLES]
+    return kept or words
 
 
 def _same(a, b):
-    na, nb = _norm(a), _norm(b)
-    if not na or not nb:
+    ta, tb = _tokens(a), _tokens(b)
+    if not ta or not tb:
         return False
-    return na == nb or na in nb or nb in na
+    if ta == tb:
+        return True
+    # A shorter title may name the same thing ("Rocky" / "Rocky Balboa"), but
+    # only if every one of its words appears in the other.
+    short, long = (ta, tb) if len(ta) <= len(tb) else (tb, ta)
+    return set(short) <= set(long)
 
 
 # ------------------------------------------------------------------ probes
