@@ -178,6 +178,39 @@ def test_repair_loop_reduces_overflow():
     print(f"repair loop           ok  (2 drafts, teaches {p['new']})")
 
 
+def test_empty_subject_table_says_so():
+    """The old message blamed the level for an empty table, which sends you
+    looking in the wrong place entirely."""
+    from content import subjects as subj
+    import sqlite3
+    try:
+        subj.pick("nonexistent-domain", 1000)
+    except subj.NoSubjects as e:
+        assert "table is empty" in str(e) and "cli.py seed" in str(e), str(e)
+    else:
+        raise AssertionError("expected NoSubjects")
+
+    # A populated table with nothing tellable this low is a different problem
+    # and must read differently.
+    try:
+        subj.pick("movies", 100)
+    except subj.NoSubjects as e:
+        assert "none is tellable" in str(e) and "the easiest needs" in str(e), str(e)
+    else:
+        raise AssertionError("expected NoSubjects for too-low level")
+    print("subject errors        ok")
+
+
+def test_fake_respects_the_requested_level():
+    """A fixed word list cannot satisfy a low ceiling, so offline runs at
+    level 1000 produced nothing but rejections and looked broken."""
+    gen = FakeGenerator(seed=4)
+    made = [riddles.generate(gen, "en", "English", "movies", 1000) for _ in range(6)]
+    assert any(p["accepted_vocab"] for p in made), \
+        [p["reject_reason"] for p in made]
+    print("fake level awareness  ok")
+
+
 def test_distractors_are_real_and_grouped():
     subj = [s for s in cstore.subjects("movies") if s["title"] == "Star Wars"][0]
     opts = cstore.distractors_for(subj, 3)
@@ -281,7 +314,8 @@ TESTS = [
     test_placement_catches_the_decoder, test_no_l1_means_no_cognate_control,
     test_vocabulary_total_cannot_exceed_the_frontier, test_frontier_first_crossing,
     test_pseudowords_are_not_real, test_json_recovery,
-    test_repair_loop_reduces_overflow, test_distractors_are_real_and_grouped,
+    test_repair_loop_reduces_overflow, test_empty_subject_table_says_so,
+    test_fake_respects_the_requested_level, test_distractors_are_real_and_grouped,
     test_probe_panel_detects_each_failure, test_corpus_first_serving_and_writeback,
     test_frontier_retreats_faster_than_it_advances,
     test_studio_api, test_web_api,

@@ -182,6 +182,18 @@ retellability gets overwritten by the probe panel as evidence arrives.
 **Ladder** overrides the teachability heuristic word by word, and an override
 always wins.
 
+### If generation produces nothing
+
+`no subjects in domain 'movies' at all` means the content database is fresh.
+`cli.py generate` now seeds it automatically, but if you see this, run
+`python cli.py seed`. Check the path in the message matches the database you
+expect — setting `CINETOT_CONTENT_DB` in one shell and not another gives you two
+separate databases and a confusing empty one.
+
+`none is tellable at level N` is the opposite problem: subjects exist, but every
+one has a `min_frontier` above N. Generate higher, or lower a film's minimum in
+the studio.
+
 ### The corpus starts empty
 
 Nothing ships pre-generated. On a fresh clone there are subjects but no riddles,

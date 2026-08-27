@@ -101,6 +101,10 @@ def seed(force=False):
     return n
 
 
+class NoSubjects(RuntimeError):
+    """Raised with a message that says which of the two problems it is."""
+
+
 def pick(domain, frontier, avoid=(), rng=None):
     """Choose a subject tellable at this level, avoiding recent answers.
 
@@ -110,12 +114,24 @@ def pick(domain, frontier, avoid=(), rng=None):
     """
     import random
     rng = rng or random.Random()
-    pool = [s for s in store.subjects(domain=domain, min_frontier=frontier)
-            if s["title"] not in set(avoid)]
-    if not pool:
-        pool = store.subjects(domain=domain, min_frontier=frontier)
-    if not pool:
-        return None
+
+    tellable = store.subjects(domain=domain, min_frontier=frontier)
+    if not tellable:
+        # Two very different failures, and the old message conflated them:
+        # an empty table sends you looking at levels for no reason.
+        import config
+        total = store.subjects(domain=domain, status=None)
+        if not total:
+            raise NoSubjects(
+                f"no subjects in domain '{domain}' at all — the table is empty. "
+                f"Run: python cli.py seed   (content db: {config.CONTENT_DB})")
+        lowest = min(s["min_frontier"] for s in total)
+        raise NoSubjects(
+            f"{len(total)} subjects exist in '{domain}' but none is tellable at "
+            f"level {frontier}; the easiest needs {lowest}. Generate at a higher "
+            f"level, or lower a subject's min level in the studio.")
+
+    pool = [s for s in tellable if s["title"] not in set(avoid)] or tellable
     weights = [max(1, s["recognizability"] * s["retellability"]) for s in pool]
     return rng.choices(pool, weights=weights, k=1)[0]
 

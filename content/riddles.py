@@ -123,8 +123,6 @@ def generate(gen, lang, lang_name, domain, level, subject=None, rng=None,
 
     avoid = store.subject_usage(lang, domain)
     subject = subject or subjects.pick(domain, level, avoid=avoid, rng=rng)
-    if subject is None:
-        raise RuntimeError(f"no subject available for {domain} at level {level}")
 
     known = vocab.build_known_set(lang, level, extra=known_extra, minus=unknown)
     lex = corpus.get(lang)

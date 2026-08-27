@@ -213,6 +213,9 @@ def health():
 
 learner_store.init()
 content_store.init()
+# The live-generation fallback needs subjects to exist.
+from content import subjects as _subjects  # noqa: E402
+_subjects.seed()
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, use_reloader=False)

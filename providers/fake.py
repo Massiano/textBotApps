@@ -75,6 +75,27 @@ class FakeGenerator(Generator):
         m = re.search(r"\*\*(.+?)\*\*", text)
         return m.group(1).strip() if m else None
 
+    def _level_of(self, messages):
+        """The prompt states the ceiling; the fake honours it rather than
+        using a fixed word list, so offline runs behave sensibly at any level."""
+        import re
+        for m in messages:
+            hit = re.search(r"the ([\d,]+) most common words", m.get("content", ""))
+            if hit:
+                return int(hit.group(1).replace(",", ""))
+        return 2000
+
+    def _pools(self, level):
+        """Draw real words from the corpus: easy ones well inside the level,
+        shell words just past it, and far words to overshoot with."""
+        from core import corpus
+        lex = corpus.get("en")
+        easy = [w for w in lex.lemmas[300:max(400, int(level * 0.6))] if len(w) > 2]
+        lo, hi = level, min(int(level * 1.3) + 200, len(lex.lemmas))
+        shell = [w for w in lex.lemmas[lo:hi] if len(w) > 2] or easy[-40:]
+        far = [w for w in lex.lemmas[min(hi * 3, len(lex.lemmas) - 400):] if len(w) > 3]
+        return easy, shell, far
+
     def _riddle(self, messages, last):
         # Every repair note ends the same way, so this catches all of them —
         # including "you taught nothing", which must not send the fake back to
@@ -83,8 +104,10 @@ class FakeGenerator(Generator):
         n_hard = 0 if followup else (2 if self.hard_first_draft else 0)
         n_mid = 2 if followup else 2
 
-        hard = self.rng.sample(HARD, n_hard)
-        mid = self.rng.sample(MID, n_mid)
+        level = self._level_of(messages)
+        easy, shell, far = self._pools(level)
+        hard = self.rng.sample(far, min(n_hard, len(far)))
+        mid = self.rng.sample(shell, min(n_mid, len(shell)))
         who = self.rng.sample(PERSON, 3)
         where = self.rng.sample(PLACE, 3)
         what = self.rng.sample(THING, 3)

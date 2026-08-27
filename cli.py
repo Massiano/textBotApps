@@ -30,6 +30,10 @@ def cmd_seed(a):
 
 def cmd_generate(a):
     store.init()
+    # A fresh database has no subjects, and generation cannot invent them.
+    if not store.subjects(domain=a.domain, status=None):
+        added = subjects.seed()
+        print(f"empty subject table, seeded {added} subjects first")
     gen = generator()
     lang_name = config.ENGLISH_NAME.get(a.lang, "English")
     levels = [int(x) for x in a.levels.split(",")] if a.levels else ladder.levels(a.lang)[:3]
