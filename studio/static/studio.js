@@ -30,7 +30,7 @@ function showView(v) {
   el("view-" + v).classList.add("on");
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t.dataset.view === v));
   ({ coverage: loadCoverage, review: loadQueue, telemetry: loadTelemetry,
-     subjects: loadSubjects, ladder: loadLadder }[v] || (() => {}))();
+     subjects: loadSubjects, ladder: loadLadder, compose: loadCompose }[v] || (() => {}))();
 }
 
 function renderStats(counts) {
@@ -215,6 +215,89 @@ async function probeCurrent() {
   showCard();
 }
 
+/* --------------------------------------------------------------- compose */
+
+let cwTimer = null, cwOk = false;
+
+async function loadCompose() {
+  const d = await api(`/api/subjects?domain=${S.domain}`);
+  el("cw-subject").innerHTML = d.items
+    .filter((s) => s.status === "active")
+    .map((s) => `<option value="${s.id}">${esc(s.title)}${s.year ? " (" + s.year + ")" : ""}`
+      + ` — min ${s.min_frontier}</option>`).join("");
+  if (!el("cw-level").options.length) {
+    el("cw-level").innerHTML = S.levels.map((lv) => `<option value="${lv}">${lv}</option>`).join("");
+    el("cw-level").value = S.levels[1] || S.levels[0];
+  }
+  checkText();
+}
+
+async function checkText() {
+  const text = el("cw-text").value;
+  const level = Number(el("cw-level").value);
+  if (!text.trim()) {
+    el("cw-mirror").innerHTML = `<span style="font-family:Inter,sans-serif;font-size:11px">`
+      + `Your text appears here word by word, coloured by whether the learner knows it.</span>`;
+    el("cw-readout").innerHTML = ""; el("cw-newwords").innerHTML = "";
+    el("cw-save").disabled = true; return;
+  }
+  let d;
+  try { d = await post("/api/analyse", { lang: S.lang, level, text }); }
+  catch (e) { el("cw-msg").innerHTML = `<span class="err">${esc(e.message)}</span>`; return; }
+
+  const cls = { known: "k", new: "n", name: "p" };
+  let out = "", cur = 0;
+  d.tokens.forEach((t) => {
+    out += esc(text.slice(cur, t.s));
+    out += `<span class="${cls[t.kind] || "k"}">${esc(t.w)}</span>`;
+    cur = t.e;
+  });
+  out += esc(text.slice(cur));
+  el("cw-mirror").innerHTML = out;
+
+  const n = d.new.length;
+  el("cw-readout").innerHTML =
+    `<span class="ro2 ${n >= 1 && n <= 3 ? "good" : "bad"}"><b>${n}</b> new word${n === 1 ? "" : "s"} <i>(1-3)</i></span>`
+    + `<span class="ro2"><b>${d.ceiling_rank}</b> ceiling <i>(of ${level})</i></span>`
+    + `<span class="ro2"><b>${d.stats.sentences}</b> sentences</span>`
+    + `<span class="ro2"><b>${d.stats.words_per_sentence}</b> words per sentence</span>`
+    + `<span class="ro2"><b>${d.names.length}</b> names</span>`;
+
+  el("cw-newwords").innerHTML = d.new.length
+    ? d.new.map((w) => {
+        const far = w.rank === null || w.rank > d.shell[1];
+        return `<span class="nwc ${far ? "far" : ""}">${esc(w.lemma)}`
+          + `<span>${w.rank === null ? "not in list" : "rank " + w.rank}`
+          + `${far ? " — too far" : ""}</span></span>`;
+      }).join("")
+    : `<span class="nwc" style="background:#232830;color:#6b7280">nothing new — the reader learns nothing</span>`;
+
+  cwOk = d.ok;
+  el("cw-save").disabled = !d.ok;
+  el("cw-msg").innerHTML = d.ok
+    ? `<span class="ok">Fits. Saving sends it to the review queue like any generated riddle.</span>`
+    : d.reasons.map(esc).join(" · ");
+}
+
+async function saveComposed() {
+  try {
+    const d = await post("/api/compose", {
+      lang: S.lang, domain: S.domain,
+      level: Number(el("cw-level").value),
+      subject_id: Number(el("cw-subject").value),
+      text: el("cw-text").value,
+      emoji: el("cw-emoji").value,
+    });
+    el("cw-msg").innerHTML = `<span class="ok">Saved — teaches `
+      + `<b>${d.new.map(esc).join(", ")}</b>, ceiling ${d.ceiling_rank}. `
+      + `It is in the review queue now.</span>`;
+    el("cw-text").value = "";
+    checkText(); loadOverview();
+  } catch (e) {
+    el("cw-msg").innerHTML = `<span class="err">${esc(e.message)}</span>`;
+  }
+}
+
 /* ------------------------------------------------------------ telemetry */
 
 async function loadTelemetry() {
@@ -323,6 +406,30 @@ function init() {
     renderWorker(await post("/api/worker", { action: running ? "stop" : "start" }));
   };
   el("lad-go").onclick = loadLadder;
+
+  el("cw-text").oninput = () => {
+    clearTimeout(cwTimer);
+    cwTimer = setTimeout(() => checkText().catch(() => {}), 250);
+  };
+  el("cw-level").onchange = () => checkText();
+  el("cw-save").onclick = saveComposed;
+  el("cw-clear").onclick = () => { el("cw-text").value = ""; checkText(); };
+
+  el("sa-go").onclick = async () => {
+    const title = el("sa-title").value.trim();
+    if (!title) { el("sa-msg").textContent = "Needs a title."; return; }
+    try {
+      await post("/api/subjects/new", {
+        domain: S.domain, title,
+        year: Number(el("sa-year").value) || null,
+        distractor_group: el("sa-group").value.trim() || "misc",
+        min_frontier: Number(el("sa-min").value) || 800,
+      });
+      el("sa-msg").textContent = `Added ${title}.`;
+      ["sa-title", "sa-year", "sa-group"].forEach((i) => { el(i).value = ""; });
+      loadSubjects();
+    } catch (e) { el("sa-msg").textContent = e.message; }
+  };
 
   el("rev-accept").onclick = () => decide("accepted");
   el("rev-reject").onclick = () => decide("rejected");

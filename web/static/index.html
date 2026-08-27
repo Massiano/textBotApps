@@ -54,8 +54,8 @@
       <div class="ptext" id="setup-text"></div>
       <div id="setup-steps">
         <div class="step" id="step-1"><b>1</b><span class="st">Measure your base vocabulary</span><span class="sd">A short word check with invented words mixed in, so guessing shows up in the score.</span><button class="go" data-panel="test">Start</button></div>
-        <div class="step" id="step-2"><b>2</b><span class="st">Say what you like</span><span class="sd">Your topics decide which new words get taught first.</span><button class="go" data-panel="interests">Choose topics</button></div>
-        <div class="step" id="step-3"><b>3</b><span class="st">Play</span><span class="sd">Riddles written inside your vocabulary, plus exactly three new words each round.</span><button class="go" data-panel="play">Play a round</button></div>
+        <div class="step" id="step-2"><b>2</b><span class="st">Play</span><span class="sd">Riddles written inside your vocabulary, with one to three new words each time.</span><button class="go" data-panel="play">Play a round</button></div>
+        <div class="step" id="step-3"><b>3</b><span class="st">Collect words</span><span class="sd">Click any word you do not know. What you mark shapes what comes next.</span><button class="go" data-panel="words">My word list</button></div>
       </div>
       <div id="setup-bands"></div>
     </div>
@@ -63,6 +63,11 @@
     <!-- ============================================ placement -->
     <div class="panel" id="panel-test">
       <div class="ptitle">Which of these do you know?</div>
+      <div id="l1-ask">
+        <label for="l1-select">Your first language</label>
+        <select id="l1-select"></select>
+        <span id="l1-why">Words that look like your own language are easy to recognise without knowing them. Telling us which language you speak lets the check allow for that.</span>
+      </div>
       <div class="ptext" id="test-instructions"></div>
       <div id="test-grid"></div>
       <div id="test-count">0 selected</div>

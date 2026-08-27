@@ -18,8 +18,10 @@ import json
 from flask import Flask, jsonify, request, send_from_directory
 
 import config
+import json
+
 from content import jobs, riddles, store, subjects
-from core import corpus, ladder
+from core import corpus, ladder, vocab
 from providers.fake import FakeGenerator
 from providers.openrouter import OpenRouter
 
@@ -182,6 +184,143 @@ def review(rid):
         return jsonify({"error": "bad decision"}), 400
     store.set_status(rid, decision, b.get("reason"), b.get("note"))
     return jsonify({"ok": True, "counts": store.counts()})
+
+
+# --------------------------------------------------------------- authoring
+
+@app.route("/api/analyse", methods=["POST"])
+def analyse():
+    """Live vocabulary check for hand-written text.
+
+    The same verifier the generator is judged by, pointed at a human author, so
+    writing a retelling by hand is a guided activity rather than a guess.
+    """
+    b = body()
+    lang = b.get("lang", "en")
+    level = int(b.get("level", 2000))
+    text = b.get("text", "")
+    known = vocab.build_known_set(lang, level)
+    report = vocab.analyse(text, lang, known)
+    ok, reasons, repair = vocab.verdict(report, lang, level)
+    lex = corpus.get(lang)
+    return jsonify({
+        "tokens": report["tokens"],
+        "new": [{"lemma": w, "rank": report["overflow_ranks"].get(w)}
+                for w in report["overflow"]],
+        "names": report["names"],
+        "ceiling_rank": report["ceiling_rank"],
+        "ok": ok, "reasons": reasons, "repair": repair,
+        "stats": riddles.text_stats(text, lang),
+        "shell": list(vocab.shell_window(lang, level)),
+        "level": level,
+    })
+
+
+@app.route("/api/suggest", methods=["POST"])
+def suggest():
+    """Easier alternatives near a word the author used, for manual repair."""
+    b = body()
+    lang = b.get("lang", "en")
+    level = int(b.get("level", 2000))
+    lex = corpus.get(lang)
+    lemma = b.get("lemma", "").lower()
+    rank = lex.rank_of(lemma)
+    return jsonify({
+        "lemma": lemma, "rank": rank,
+        "inside_level": rank is not None and rank <= level,
+        "band": lex.band_of(lemma),
+    })
+
+
+@app.route("/api/compose", methods=["POST"])
+def compose():
+    """Save a hand-written riddle.
+
+    Authored text still passes the verifier — the point is not to bypass the
+    rules but to let a person write inside them. It lands as a candidate so it
+    goes through probes and review like anything else.
+    """
+    b = body()
+    lang = b.get("lang", "en")
+    domain = b.get("domain", "movies")
+    level = int(b.get("level", 2000))
+    text = (b.get("text") or "").strip()
+    subject_id = b.get("subject_id")
+    if not text or not subject_id:
+        return jsonify({"error": "text and subject are required"}), 400
+
+    subject = store.one("SELECT * FROM subject WHERE id=?", (subject_id,))
+    if not subject:
+        return jsonify({"error": "unknown subject"}), 404
+
+    known = vocab.build_known_set(lang, level)
+    report = vocab.analyse(text, lang, known)
+    ok, reasons, _ = vocab.verdict(report, lang, level)
+    if not ok and not b.get("force"):
+        return jsonify({"error": "; ".join(reasons), "reasons": reasons}), 400
+
+    options = b.get("options") or ([subject["title"]] + store.distractors_for(subject, 3))
+    rid = store.save_riddle({
+        "lang": lang, "domain": domain, "level": level,
+        "subject_id": subject_id, "answer": subject["title"],
+        "options": options, "emoji": b.get("emoji") or "\U0001F3AC",
+        "text": text, "ceiling_rank": report["ceiling_rank"],
+        "new": report["overflow"], "new_ranks": report["overflow_ranks"],
+        "lemmas": sorted({t["lemma"] for t in report["tokens"] if t["kind"] == vocab.KNOWN}),
+        "names": report["names"], "status": "candidate",
+        "model": "hand-written", "drafts": 1, "origin": "authored",
+        "stats": riddles.text_stats(text, lang),
+    })
+    return jsonify({"ok": True, "id": rid, "new": report["overflow"],
+                    "ceiling_rank": report["ceiling_rank"]})
+
+
+@app.route("/api/riddle/<rid>")
+def riddle_detail(rid):
+    r = store.get_riddle(rid)
+    return (jsonify(r), 200) if r else (jsonify({"error": "not found"}), 404)
+
+
+@app.route("/api/riddle/<rid>/text", methods=["POST"])
+def edit_text(rid):
+    """Rewrite an existing riddle by hand, re-deriving its index values."""
+    b = body()
+    r = store.get_riddle(rid)
+    if not r:
+        return jsonify({"error": "not found"}), 404
+    text = (b.get("text") or "").strip()
+    known = vocab.build_known_set(r["lang"], r["level"])
+    report = vocab.analyse(text, r["lang"], known)
+    store.conn().execute(
+        "UPDATE riddle SET text=?, ceiling_rank=?, new_json=?, lemmas_json=?, "
+        "names_json=?, probe_json=NULL, origin='authored' WHERE id=?",
+        (text, report["ceiling_rank"], json.dumps(report["overflow"]),
+         json.dumps(sorted({t["lemma"] for t in report["tokens"]
+                            if t["kind"] == vocab.KNOWN})),
+         json.dumps(report["names"]), rid))
+    store.conn().execute("DELETE FROM riddle_new WHERE riddle_id=?", (rid,))
+    store.conn().executemany(
+        "INSERT INTO riddle_new (riddle_id, lang, lemma, rank) VALUES (?,?,?,?)",
+        [(rid, r["lang"], w, report["overflow_ranks"].get(w)) for w in report["overflow"]])
+    store.conn().commit()
+    return jsonify({"ok": True, "new": report["overflow"],
+                    "ceiling_rank": report["ceiling_rank"]})
+
+
+@app.route("/api/subjects/new", methods=["POST"])
+def subject_new():
+    b = body()
+    title = (b.get("title") or "").strip()
+    if not title:
+        return jsonify({"error": "title is required"}), 400
+    sid = store.add_subject(
+        b.get("domain", "movies"), title, year=b.get("year"),
+        recognizability=int(b.get("recognizability", 3)),
+        retellability=int(b.get("retellability", 3)),
+        min_frontier=int(b.get("min_frontier", 800)),
+        concreteness=int(b.get("concreteness", 3)),
+        distractor_group=b.get("distractor_group") or "misc")
+    return jsonify({"ok": True, "id": sid})
 
 
 # --------------------------------------------------------------- telemetry

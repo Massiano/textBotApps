@@ -23,8 +23,14 @@ from core import cognates, corpus, pseudo
 PLAIN, COGNATE, PSEUDO = "plain", "cognate", "pseudo"
 
 
-def build(lang, seed=None, per_band=None):
-    """Return (items, key). Items carry nothing that reveals their type."""
+def build(lang, seed=None, per_band=None, l1=None):
+    """Return (items, key). Items carry nothing that reveals their type.
+
+    *l1* is the learner's first language and decides what counts as
+    transparent. Without it there is no cognate control, which matters most for
+    learners of English, whose upper frequency bands are dense with Latinate
+    vocabulary that a European speaker can decode without knowing.
+    """
     rng = random.Random(seed)
     lex = corpus.get(lang)
     per_band = per_band or config.ITEMS_PER_BAND
@@ -35,9 +41,10 @@ def build(lang, seed=None, per_band=None):
         items.append({"id": len(items), "word": word})
         key[len(key)] = {"word": word, "kind": kind, "band": band}
 
-    # The cognate axis is measured against English. When English *is* the
-    # target there is no transparency to control for, so every item is plain.
-    split_cognates = lang != "en"
+    # Transparency is a relation between two languages. With no first language
+    # declared, or when it matches the target, there is nothing to control for.
+    ref = l1 if (l1 and l1 != lang and l1 in config.LANGUAGES) else None
+    split_cognates = ref is not None
 
     for label, lo, hi in config.BANDS:
         pool = [w for w in lex.slice(lo, hi) if len(w) > 2]
@@ -52,7 +59,7 @@ def build(lang, seed=None, per_band=None):
 
         clear, opaque = [], []
         for w in pool:
-            (clear if cognates.is_cognate(w, lang) else opaque).append(w)
+            (clear if cognates.is_cognate(w, lang, ref) else opaque).append(w)
             if len(opaque) >= per_band and len(clear) >= per_band // 2:
                 break
         # Opaque words carry the measurement; a couple of transparent ones per
@@ -88,7 +95,7 @@ def score(key, responses):
     h_cognate, _ = rate(COGNATE)
     h_plain, _ = rate(PLAIN)
 
-    bands, vocab, frontier, found = [], 0.0, config.FUNCTION_FLOOR, False
+    bands, frontier, found = [], config.FUNCTION_FLOOR, False
     prev_corr, prev_hi = 1.0, 0
 
     for label, lo, hi in config.BANDS:
@@ -96,7 +103,6 @@ def score(key, responses):
         if raw is None:
             continue
         corr = max(0.0, (raw - fa) / (1 - fa)) if fa < 1 else 0.0
-        vocab += (hi - lo) * corr
         cog_raw, _ = rate(COGNATE, label)
         bands.append({"band": label, "range": [lo, hi], "asked": n,
                       "raw": round(raw, 3), "corrected": round(corr, 3),
@@ -119,7 +125,22 @@ def score(key, responses):
         frontier = config.BANDS[-1][2]
 
     order = [b["corrected"] for b in bands]
-    inversions = sum(1 for a, b in zip(order, order[1:]) if b > a + 0.25)
+    # Real vocabulary decays with frequency. Scoring better on a rarer band than
+    # a commoner one is not possible for someone who actually knows the words,
+    # so even a modest rise is evidence of decoding rather than knowing.
+    inversions = sum(1 for a, b in zip(order, order[1:]) if b > a + 0.12)
+
+    # The vocabulary total counts only what sits inside the frontier. Summing
+    # every band lets noise and transparent words in the rare bands inflate the
+    # headline far past the point where knowledge demonstrably broke down, and
+    # a learner capped at rank 2000 cannot coherently be told they know 7000
+    # words.
+    vocab = 0.0
+    for b in bands:
+        lo, hi = b["range"]
+        if lo >= frontier:
+            break
+        vocab += (min(hi, frontier) - lo) * b["corrected"]
 
     gap = None if (h_cognate is None or h_plain is None) else round(h_cognate - h_plain, 3)
 

@@ -137,11 +137,23 @@ pseudowords   catch yes-saying           -> false alarm rate
 cognates      catch decode-without-know  -> transparency gap
 ```
 
+Transparency is a relation **between two languages**, so the reference is the
+learner's declared first language, not English. Getting this wrong is not a
+small error: a German speaker learning English decodes most of the Latinate
+vocabulary in the upper bands, and treating English as the reference leaves
+exactly that learner with no control at all. An early version placed such a
+learner at C1 on decoded cognates alone.
+
 The frontier is computed from opaque words only; cognate performance is reported
-separately. Cognate detection is offline — orthographic distance to *frequent*
-English lemmas, plus international affixes — and the matched English word is
-exposed so it can be overruled. (A resemblance to a rare English word like
-*travail* tells us nothing, so those are screened out.)
+separately. Detection is offline — orthographic distance to *frequent* lemmas of
+the first language, plus international affixes — and the matched word is exposed
+so it can be overruled. (A resemblance to a rare word like *travail* tells us
+nothing, so those are screened out.)
+
+The vocabulary total is also **capped at the frontier**. Summing every band let
+noise and transparent words in the rare bands inflate the headline far past the
+point where knowledge demonstrably broke down; a learner capped at rank 2000
+cannot coherently be told they know 7000 words.
 
 Three further consequences:
 
@@ -153,6 +165,30 @@ Three further consequences:
 - **The frontier retreats faster than it advances**, for the same reason.
 
 ---
+
+## Authoring
+
+The studio is not only a monitor. **Write** is a composer: pick a subject and a
+level, type a retelling, and the same verifier the generator is held to runs on
+every keystroke. Words outside the level turn amber, the readout shows the new
+word count, ceiling rank, sentence length and name count, and the save button
+stays disabled until the text actually fits KNOWN + N. Hand-written riddles land
+in the review queue like generated ones.
+
+**Subjects** takes your own films. The 46 seeded titles are a starting point,
+not the list — add, rate and retire freely. Recognizability is yours to judge;
+retellability gets overwritten by the probe panel as evidence arrives.
+
+**Ladder** overrides the teachability heuristic word by word, and an override
+always wins.
+
+### The corpus starts empty
+
+Nothing ships pre-generated. On a fresh clone there are subjects but no riddles,
+so the learner app has nothing to serve until you either run generation with an
+API key or write some by hand in **Write**. Without a key the generator falls
+back to `providers.fake`, which produces structurally valid but meaningless
+sentences — fine for exercising the pipeline, useless as content.
 
 ## Running it
 
@@ -245,6 +281,9 @@ active language; several workers multiply that.
   outside English. A failure on a Hungarian riddle may be the solver's weakness
   rather than the riddle's, and without calibration the gate would silently
   reject good content in exactly the languages with the thinnest coverage.
+- **Without a declared first language there is no cognate control**, and an
+  English test for a European speaker will read high. The learner app asks, but
+  the question is skippable.
 - **No accounts.** Learners are a cookie.
 
 ---

@@ -90,7 +90,10 @@ def test_placement_catches_the_decoder():
     """The failure that motivated this: a learner who decodes Latinate words
     without knowing them must not be placed high on that basis."""
     import random
-    items, key = placement.build("es", seed=5)
+    # Transparency is a relation between two languages, so the test has to say
+    # which one the learner speaks. Without an L1 there is no control at all —
+    # which was the original bug.
+    items, key = placement.build("es", seed=5, l1="en")
     rng = random.Random(1)
     truth = {"1K": .95, "2K": .8, "3K": .35, "5K": .15,
              "8K": .05, "12K": .02, "20K": 0., "30K": 0.}
@@ -102,9 +105,38 @@ def test_placement_catches_the_decoder():
         resp[i] = rng.random() < p
     rep = placement.score(key, resp)
     assert rep["cognate_inflated"], rep["transparency_gap"]
-    assert rep["cefr"] in ("A2", "B1"), rep["cefr"]
+    assert rep["cefr"] in ("A1", "A2", "B1"), rep["cefr"]
     assert rep["frontier_rank"] < 4000, rep["frontier_rank"]
     print(f"cognate placement     ok  (B-level not C, gap {rep['transparency_gap']})")
+
+
+def test_no_l1_means_no_cognate_control():
+    """Declaring no first language must not silently produce a confident
+    reading: with nothing to compare against there is no transparency axis."""
+    _, key = placement.build("es", seed=5, l1=None)
+    assert not any(m["kind"] == placement.COGNATE for m in key.values())
+    _, key_en = placement.build("en", seed=5, l1="de")
+    assert any(m["kind"] == placement.COGNATE for m in key_en.values()), \
+        "an English test for a German speaker must still control for cognates"
+    print("l1 wiring             ok")
+
+
+def test_vocabulary_total_cannot_exceed_the_frontier():
+    """A learner capped at rank 2000 cannot coherently be told they know 7000
+    words. Summing every band let rare-band noise inflate the headline."""
+    import random
+    items, key = placement.build("en", seed=3)
+    rng = random.Random(7)
+    truth = {"1K": .9, "2K": .5, "3K": .2, "5K": .1,
+             "8K": .05, "12K": .02, "20K": 0., "30K": 0.}
+    resp = {i: rng.random() < (.05 if m["kind"] == placement.PSEUDO else truth[m["band"]])
+            for i, m in key.items()}
+    rep = placement.score(key, resp)
+    assert rep["vocab_estimate"] <= rep["frontier_rank"] * 1.15, (
+        rep["vocab_estimate"], rep["frontier_rank"])
+    assert rep["cefr"] in ("A1", "A2", "B1"), rep["cefr"]
+    print(f"vocab coherence       ok  ({rep['vocab_estimate']} words, "
+          f"frontier {rep['frontier_rank']}, {rep['cefr']})")
 
 
 def test_frontier_first_crossing():
@@ -246,7 +278,8 @@ TESTS = [
     test_lemmas, test_overflow_is_the_new_word_set, test_inflection_credit,
     test_verdict_counts_not_identities, test_ceiling_governs_serving,
     test_teachability_filter, test_cognates_are_screened_not_guessed,
-    test_placement_catches_the_decoder, test_frontier_first_crossing,
+    test_placement_catches_the_decoder, test_no_l1_means_no_cognate_control,
+    test_vocabulary_total_cannot_exceed_the_frontier, test_frontier_first_crossing,
     test_pseudowords_are_not_real, test_json_recovery,
     test_repair_loop_reduces_overflow, test_distractors_are_real_and_grouped,
     test_probe_panel_detects_each_failure, test_corpus_first_serving_and_writeback,

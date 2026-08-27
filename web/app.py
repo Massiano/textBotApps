@@ -105,10 +105,17 @@ def profile():
 
 @app.route("/api/placement/start", methods=["POST"])
 def placement_start():
-    lang = lang_of(body().get("lang", "en"))
-    items, key = placement.build(lang)
+    b = body()
+    lang = lang_of(b.get("lang", "en"))
+    # First language decides what counts as a transparent cognate. Without it
+    # the test cannot tell knowing a word from decoding it.
+    l1 = b.get("l1") or learner_store.get_l1(request.learner_id)
+    if b.get("l1"):
+        learner_store.set_l1(request.learner_id, b["l1"])
+    items, key = placement.build(lang, l1=l1)
     tid = learner_store.save_test(request.learner_id, lang, "placement", key)
-    return jsonify({"test_id": tid, "lang": lang, "items": items})
+    return jsonify({"test_id": tid, "lang": lang, "items": items,
+                    "l1": l1, "needs_l1": not l1})
 
 
 @app.route("/api/placement/submit", methods=["POST"])

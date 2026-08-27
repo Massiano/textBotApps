@@ -46,6 +46,8 @@ function show(name) {
 async function boot() {
   const data = await api("/api/bootstrap");
 
+  state.languages = data.languages;
+  state.l1 = data.l1;
   el("lang-select").innerHTML = data.languages
     .map((l) => `<option value="${l.code}">${escapeHtml(l.label)}</option>`).join("");
   el("domain-select").innerHTML = data.domains
@@ -86,8 +88,6 @@ async function refreshProfile() {
         + `${escapeHtml(q.lemma)}</span>`).join("")
     : `<div id="rail-queue-empty">Empty. Words land here once you meet them in a riddle or ask to be taught them.</div>`;
 
-  state.topics = data.interests || [];
-  renderTopicChips();
   renderOverview(data);
 }
 
@@ -96,15 +96,15 @@ function renderOverview(data) {
   el("setup-text").innerHTML = p.provisional
     ? "Nothing measured in this language yet. The riddles will start at a beginner setting until you take the word check."
     : `Texts are written using the ${p.vocab_estimate.toLocaleString()} most useful words in this language `
-      + `— roughly CEFR ${p.cefr} — plus exactly three words just beyond that edge, chosen from your topics where possible.`
+      + `— roughly CEFR ${p.cefr} — plus one to three words just beyond that edge, chosen from your topics where possible.`
       + (p.reliable ? "" : ` <span style="color:#c85a4a">Your last word check had a high rate of yes on invented words, so this estimate is inflated. Worth retaking.</span>`)
       + (p.consistent === false
           ? ` <span style="color:#c85a4a">Your answers jumped around — you knew rarer words after missing commoner ones. The cap of ${p.frontier_rank} is the number being trusted, not the total above.</span>`
           : "");
 
   el("step-1").classList.toggle("done", !p.provisional);
-  el("step-2").classList.toggle("done", (data.interests || []).length > 0);
-  el("step-3").classList.toggle("done", data.counts.learning > 0);
+  el("step-2").classList.toggle("done", data.counts.learning > 0);
+  el("step-3").classList.toggle("done", data.counts.known > 0);
 
   const bands = p.bands || [];
   el("setup-bands").innerHTML = bands.length
@@ -120,12 +120,22 @@ function renderOverview(data) {
 /* ------------------------------------------------------- placement test */
 
 async function startTest() {
+  if (!el("l1-select").options.length) {
+    el("l1-select").innerHTML = `<option value="">— choose —</option>`
+      + (state.languages || []).map((l) => `<option value="${l.code}">${escapeHtml(l.label)}</option>`).join("");
+    el("l1-select").value = state.l1 || "";
+  }
   el("test-grid").innerHTML = "";
   el("test-report").innerHTML = "";
   el("test-count").textContent = "loading…";
-  const data = await post("/api/placement/start", { lang: state.lang });
+  const data = await post("/api/placement/start",
+    { lang: state.lang, l1: el("l1-select").value || undefined });
+  state.l1 = data.l1;
   state.test = { id: data.test_id, items: data.items, picked: new Set() };
-  el("test-instructions").textContent = data.instructions;
+  el("test-instructions").textContent =
+    "Tap every word whose meaning you are sure of. Some of these words are invented — "
+    + "tapping those tells us how confidently you guess, so leave them alone."
+    + (data.needs_l1 ? " Choosing your first language above makes the result more accurate." : "");
   el("test-grid").innerHTML = data.items
     .map((it) => `<button class="chip" data-id="${it.id}">${escapeHtml(it.word)}</button>`).join("");
   el("test-grid").querySelectorAll(".chip").forEach((c) => {
@@ -168,62 +178,6 @@ async function submitTest() {
     chip.title = rep.reveal[String(it.id)] ? "a real word" : "invented";
   });
 
-  await refreshProfile();
-}
-
-/* ------------------------------------------------------------ interests */
-
-function renderTopicChips() {
-  el("topic-chips").innerHTML = state.topics
-    .map((t, i) => `<span class="tchip">${escapeHtml(t)}<u data-i="${i}">&times;</u></span>`).join("");
-  el("topic-chips").querySelectorAll("u").forEach((u) => {
-    u.onclick = () => { state.topics.splice(Number(u.dataset.i), 1); renderTopicChips(); };
-  });
-}
-
-function addTopic() {
-  const v = el("topic-input").value.trim();
-  if (!v) return;
-  v.split(",").map((s) => s.trim()).filter(Boolean).forEach((t) => {
-    if (state.topics.length < 8 && !state.topics.includes(t)) state.topics.push(t);
-  });
-  el("topic-input").value = "";
-  renderTopicChips();
-}
-
-async function findTopicWords() {
-  if (!state.topics.length) { el("interest-status").textContent = "Add at least one topic first."; return; }
-  el("interest-status").textContent = "Asking for words that come up in those topics…";
-  el("interest-grid").innerHTML = "";
-  el("interest-submit").style.display = "none";
-  try {
-    const data = await post("/api/interest/start", { lang: state.lang, topics: state.topics });
-    state.interest = { id: data.test_id, items: data.items, picked: new Set() };
-    el("interest-status").textContent =
-      `${data.items.length} words. Mark the ones you already know — the rest become candidates for teaching.`;
-    el("interest-grid").innerHTML = data.items
-      .map((it) => `<button class="chip" data-id="${it.id}" title="${it.band}">${escapeHtml(it.word)}</button>`).join("");
-    el("interest-grid").querySelectorAll(".chip").forEach((c) => {
-      c.onclick = () => {
-        const id = Number(c.dataset.id);
-        if (state.interest.picked.has(id)) state.interest.picked.delete(id);
-        else state.interest.picked.add(id);
-        c.classList.toggle("on");
-      };
-    });
-    el("interest-submit").style.display = "block";
-  } catch (e) {
-    el("interest-status").textContent = e.message;
-  }
-}
-
-async function submitInterest() {
-  if (!state.interest) return;
-  const responses = {};
-  state.interest.items.forEach((it) => { responses[it.id] = state.interest.picked.has(it.id); });
-  const r = await post("/api/interest/submit", { test_id: state.interest.id, responses });
-  el("interest-status").textContent =
-    `Saved. ${r.known} already known, ${r.to_learn} queued to be taught in future riddles.`;
   await refreshProfile();
 }
 
@@ -444,7 +398,7 @@ function init() {
   el("lang-select").onchange = async () => {
     state.lang = el("lang-select").value;
     localStorage.setItem("cinetot_lang", state.lang);
-    state.test = state.interest = state.round = null;
+    state.test = state.round = null;
     el("test-grid").innerHTML = ""; el("test-report").innerHTML = "";
     await refreshProfile();
   };
@@ -452,6 +406,7 @@ function init() {
 
   el("test-submit").onclick = () => submitTest().catch((e) => { el("test-report").textContent = e.message; });
   el("test-restart").onclick = () => startTest();
+  el("l1-select").onchange = () => startTest();
 
 
   el("play-btn").onclick = playRound;

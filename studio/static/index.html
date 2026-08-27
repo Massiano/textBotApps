@@ -24,6 +24,7 @@
     <button class="tab on" data-view="coverage">Coverage</button>
     <button class="tab" data-view="review">Review<span class="badge" id="badge-review"></span></button>
     <button class="tab" data-view="telemetry">Yield</button>
+    <button class="tab" data-view="compose">Write</button>
     <button class="tab" data-view="subjects">Subjects</button>
     <button class="tab" data-view="ladder">Ladder</button>
   </div>
@@ -84,6 +85,24 @@
     <div id="tel-cells"></div>
   </div>
 
+  <!-- ================================================= compose -->
+  <div class="view" id="view-compose">
+    <div class="vh">Write a retelling yourself</div>
+    <div class="vs">Same rules the generator is held to. Words outside the level turn red as you type; one to three of them is the target. Nothing saves until it fits.</div>
+    <div id="cw-controls">
+      <label class="gl">subject</label><select id="cw-subject"></select>
+      <label class="gl">level</label><select id="cw-level"></select>
+      <label class="gl">emoji</label><input id="cw-emoji" value="&#127916;" maxlength="4" />
+    </div>
+    <textarea id="cw-text" placeholder="Describe the film without naming it. Concrete events, short sentences."></textarea>
+    <div id="cw-mirror"></div>
+    <div id="cw-readout"></div>
+    <div id="cw-newwords"></div>
+    <button id="cw-save">Save to review queue</button>
+    <button id="cw-clear">Clear</button>
+    <div id="cw-msg"></div>
+  </div>
+
   <!-- ================================================= subjects -->
   <div class="view" id="view-subjects">
     <div class="vh">Subjects</div>
@@ -94,6 +113,15 @@
       <span class="sc5">group</span><span class="sc6">riddles</span><span class="sc7">status</span>
     </div>
     <div id="subj-rows"></div>
+    <div id="subj-add">
+      <input id="sa-title" placeholder="title" />
+      <input id="sa-year" placeholder="year" type="number" />
+      <input id="sa-group" placeholder="group (e.g. animation)" />
+      <label class="gl" id="sa-l1">min level</label>
+      <input id="sa-min" type="number" value="800" />
+      <button id="sa-go">Add subject</button>
+      <span id="sa-msg"></span>
+    </div>
   </div>
 
   <!-- ================================================= ladder -->
