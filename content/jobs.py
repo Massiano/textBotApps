@@ -15,7 +15,10 @@ import time
 import traceback
 
 import config
+import logs
 from content import probes, riddles, store
+
+log = logs.get("worker")
 
 
 class Worker:
@@ -43,6 +46,7 @@ class Worker:
         return bool(self.thread and self.thread.is_alive())
 
     def note(self, msg):
+        log.info("%s", msg)
         with self._lock:
             self.log.insert(0, {"at": store.now(), "msg": msg})
             del self.log[80:]
@@ -78,7 +82,7 @@ class Worker:
                     store.update_job(job["id"], status="finished",
                                      note=f"unknown kind {job['kind']}")
             except Exception as e:
-                traceback.print_exc()
+                log.error("job %s crashed: %s", job["id"], e, exc_info=True)
                 self.note(f"job {job['id']} failed: {e}")
                 store.update_job(job["id"], status="finished", note=str(e))
         self.current = None

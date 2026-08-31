@@ -16,8 +16,11 @@ import random
 import time
 
 import config
+import logs
 from content import store, subjects
 from core import corpus, vocab
+
+log = logs.get("gen")
 
 SCHEMA = {
     "type": "object",
@@ -157,6 +160,9 @@ def generate(gen, lang, lang_name, domain, level, subject=None, rng=None,
     drafts = 0
     reasons = []
 
+    log.info("%s @%d  subject=%s  audience=%s", f"{lang}/{domain}", level,
+             subject["title"], reading_level(level))
+
     for attempt in range(config.MAX_GENERATION_RETRIES + 1):
         result, model = gen.json(messages, SCHEMA, "cinetot_riddle")
         drafts += 1
@@ -165,6 +171,7 @@ def generate(gen, lang, lang_name, domain, level, subject=None, rng=None,
         ok, reasons, repair = vocab.verdict(report, lang, level)
         if ok or attempt == config.MAX_GENERATION_RETRIES:
             break
+        log.info("       draft %d: %s -> repairing", drafts, "; ".join(reasons))
         messages = messages + [
             {"role": "assistant", "content": text},
             {"role": "user", "content": _repair_note(repair)},
@@ -172,6 +179,13 @@ def generate(gen, lang, lang_name, domain, level, subject=None, rng=None,
 
     text = (result.get("text") or "").strip()
     ok, reasons, _ = vocab.verdict(report, lang, level)
+
+    log.info("%s @%d %-24s %d draft(s) %4.1fs  %s  new=%s ceiling=%d",
+             f"{lang}/{domain}", level, subject["title"][:24], drafts,
+             time.time() - started, "OK    " if ok else "REJECT",
+             ",".join(report["overflow"]) or "-", report["ceiling_rank"])
+    if not ok:
+        log.info("       reason: %s", "; ".join(reasons))
 
     distractors = store.distractors_for(subject, 3)
     options = list(dict.fromkeys([subject["title"], *distractors]))

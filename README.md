@@ -255,6 +255,32 @@ riddle you generate and review is lost on the next push. Mount it at `/app/data`
 and point both database variables inside it. `data/lex/*.json` is a rebuildable
 cache and does not need to persist.
 
+### Reading the logs
+
+Start-up prints a banner answering what a broken deploy usually raises — whether
+the key was picked up, which databases are in use, whether the studio is
+public, and whether the databases sit somewhere a redeploy will wipe:
+
+```
+CineTot starting
+  api key      : set (sk-or-v1…, 73 chars)
+  content db   : /app/data/content.sqlite3
+  auto probe   : off
+  studio token : NOT SET — studio is public
+```
+
+Then every model call and every outcome:
+
+```
+gen    en/movies @1200  subject=Toy Story  audience=an eight-year-old child
+model  google/gemma…        cinetot_riddle    3.2s  322 chars
+gen           draft 1: 6 new words, at most 3 allowed -> repairing
+gen    en/movies @1200 Toy Story   2 draft(s)  7.1s  OK  new=bird,holiday ceiling=875
+```
+
+`LOG_PROMPTS=1` with `LOG_LEVEL=DEBUG` adds the full prompt and reply. The same
+traffic is in the studio's **Debug** tab once the app is serving.
+
 Confirm a deployment with `/api/health`: `"generator":"openrouter"` means the key
 was picked up, and `"corpus"` shows how many riddles exist by status.
 

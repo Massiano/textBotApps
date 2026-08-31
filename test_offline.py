@@ -372,6 +372,31 @@ def test_probes_are_off_the_hot_path():
     assert config.PROBE_AUTOMATICALLY is False
 
 
+def test_console_logging_reaches_stdout():
+    """The in-memory trace needs a served page to be reachable. When a deploy
+    misbehaves the logs are the only thing available, so the same events go to
+    stdout."""
+    import io, logging
+    import logs as L
+    L.setup()
+    buf = io.StringIO()
+    h = logging.StreamHandler(buf)
+    root = logging.getLogger("cinetot")
+    root.addHandler(h)
+    try:
+        L.banner()
+        gen = FakeGenerator(seed=3)
+        riddles.generate(gen, "en", "English", "movies", 1200)
+    finally:
+        root.removeHandler(h)
+    out = buf.getvalue()
+    assert "CineTot starting" in out
+    assert "api key" in out
+    assert "cinetot_riddle" in out, "model calls must be logged"
+    assert ("OK" in out or "REJECT" in out), "generation outcome must be logged"
+    print("console logging       ok")
+
+
 def test_debug_endpoint_shows_real_traffic():
     from studio import app as S
     c = S.app.test_client()
@@ -447,7 +472,8 @@ TESTS = [
     test_frontier_retreats_faster_than_it_advances,
     test_prompt_gives_an_instruction_a_model_can_follow,
     test_register_examples_never_leak_corpus_noise,
-    test_probes_are_off_the_hot_path, test_debug_endpoint_shows_real_traffic,
+    test_probes_are_off_the_hot_path, test_console_logging_reaches_stdout,
+    test_debug_endpoint_shows_real_traffic,
     test_studio_api, test_generate_one_reports_synchronously,
     test_studio_mounts_under_a_prefix,
     test_bootstrap_matches_what_the_ui_reads, test_web_api,

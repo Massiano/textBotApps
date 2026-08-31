@@ -24,7 +24,10 @@ they used shows whether the riddle works on visible content.
 import re
 
 import config
+import logs
 from content import store
+
+log = logs.get("probe")
 from core.tokens import tokenize
 
 OPEN_SCHEMA = {
@@ -216,7 +219,16 @@ def run(gen, riddle, lang_name, models=None, record=True):
     except Exception as e:
         result["cloze"].append({"model": probe_model, "error": str(e)})
 
-    return {**result, **judge(result, models)}
+    verdict = judge(result, models)
+    log.info("%-24s %s  open %d/%d  forced %d/%d  blind %d/%d  cloze %d/%d",
+             riddle["answer"][:24], "PASS  " if verdict["pass"] else "REJECT",
+             verdict["solved_open"], verdict["solved_open_of"],
+             verdict["solved_forced"], verdict["solved_forced_of"],
+             verdict["blind_correct"], verdict["blind_of"],
+             verdict["cloze_correct"], verdict["cloze_of"])
+    if not verdict["pass"]:
+        log.info("       %s", "; ".join(verdict["reasons"]))
+    return {**result, **verdict}
 
 
 def judge(result, models):

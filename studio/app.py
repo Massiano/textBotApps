@@ -18,6 +18,7 @@ import json
 from flask import Flask, jsonify, request, send_from_directory
 
 import config
+import logs
 import json
 
 from content import jobs, riddles, store, subjects
@@ -443,6 +444,7 @@ def subject_seed():
     return jsonify({"added": subjects.seed(force=body().get("force", False))})
 
 
+logs.banner()
 store.init()
 subjects.seed()
 

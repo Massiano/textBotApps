@@ -11,6 +11,7 @@ import uuid
 from flask import Flask, jsonify, request, send_from_directory
 
 import config
+import logs
 from content import store as content_store
 from core import corpus, placement, vocab
 from learner import policy, store as learner_store
@@ -211,6 +212,7 @@ def health():
                     "languages": len(config.LANGUAGES)})
 
 
+logs.banner()
 learner_store.init()
 content_store.init()
 # The live-generation fallback needs subjects to exist.
